@@ -33,182 +33,159 @@ print("Columnas renombradas")
 
 # Tratar valores faltantes ------------------#
 
+# Imputar "BR" en todos los valores nulos de la columna "pais"
+if "pais" in fraud_df.columns:
+    fraud_df["pais"] = fraud_df["pais"].fillna("BR")
+
+
 # Procesamiento de columna "o" creando variables dummies limpias
+# MANTENEMOS la columna original 'o' y agregamos las dummies
 
 o_dummies = pd.get_dummies(fraud_df['o'], prefix='o', dummy_na=True)
 
 o_dummies = o_dummies.rename(columns={
     'o_Y': 'o_is_Y',
     'o_N': 'o_is_N',
-    'o_nan': 'o_is_NA',
-    'Unnamed: 0': 'row_id'
+    'o_nan': 'o_is_NA'
 }).astype(int)
 
-fraud_df = pd.concat([fraud_df.drop(columns=['o']), o_dummies], axis=1)
+# NO eliminamos 'o', solo agregamos las dummies
+fraud_df = pd.concat([fraud_df, o_dummies], axis=1)
 
-print("Columna 'o' procesada, dummies creados")
+print("Columna 'o' procesada, dummies creados (columna original 'o' mantenida)")
 
+# MANTENEMOS la columna 'r' - NO la eliminamos
+# fraud_df = fraud_df.drop(columns=['r'])  # COMENTADO: mantenemos todas las columnas
+print("Columna 'r' mantenida (no eliminada)")
 
-# Eliminamos r, imputacion de valores deb y c con MICE. 
-fraud_df = fraud_df.drop(columns=['r'])
-print("Columna 'r' eliminada")
-
-# Imputación de columnas 'b' y 'c' usando IterativeImputer (MICE)
-cols_imputar = ['b', 'c', 'd', 'e', 'f', 'h', 'monto']
+# Imputación de columnas 'b', 'c', 'd', 'f', 'q', 'l', 'm' usando IterativeImputer (MICE)
+# Crearemos columnas nuevas con sufijo '_imputado' para mantener las originales
+cols_imputar = ['b', 'c', 'd', 'e', 'f', 'h', 'monto', 'q', 'l', 'm']
 cols_existentes = [col for col in cols_imputar if col in fraud_df.columns]
 
-df_imputar = fraud_df[cols_existentes].copy()
+# Solo imputar columnas que tienen valores faltantes
+cols_con_nulos = [col for col in cols_existentes if fraud_df[col].isnull().sum() > 0]
+print(f"Columnas a imputar (con valores faltantes): {cols_con_nulos}")
 
-imputer = IterativeImputer(
-    max_iter=10,
-    random_state=42,
-    initial_strategy="median"
-)
-imputed = imputer.fit_transform(df_imputar)
-df_imputado = pd.DataFrame(imputed, columns=cols_existentes, index=fraud_df.index)
+# Inicializar lista de columnas imputadas
+cols_imputadas_creadas = []
 
-fraud_df['b'] = df_imputado['b']
-fraud_df['c'] = df_imputado['c']
+if len(cols_con_nulos) > 0:
+    # Incluir también columnas sin nulos que pueden ayudar en la imputación
+    df_imputar = fraud_df[cols_existentes].copy()
+    
+    imputer = IterativeImputer(
+        max_iter=10,
+        random_state=42,
+        initial_strategy="median"
+    )
+    imputed = imputer.fit_transform(df_imputar)
+    df_imputado = pd.DataFrame(imputed, columns=cols_existentes, index=fraud_df.index)
+    
+    # Crear nuevas columnas con sufijo '_imputado' para las versiones imputadas
+    # Mantenemos las columnas originales (con nulos) y agregamos las imputadas
+    for col in cols_con_nulos:
+        col_imputada = f'{col}_imputado'
+        fraud_df[col_imputada] = df_imputado[col]
+        cols_imputadas_creadas.append(col_imputada)
+    
+    print(f"Columnas imputadas creadas con sufijo '_imputado': {cols_imputadas_creadas}")
+else:
+    print("No hay columnas con valores faltantes para imputar")
 
-print("Columnas 'b' y 'c' imputadas")
+# FEATURE ENGINEERING ----------------------------------#
+# Función auxiliar para aplicar feature engineering completo
+def aplicar_feature_engineering(df):
+    """Aplica todo el feature engineering a un dataframe"""
+    df = df.copy()
+    
+    # Encoding de categoria_id
+    if 'categoria_id' in df.columns:
+        target_mean = df.groupby('categoria_id')['fraude'].mean()
+        df['categoria_id_target_enc'] = df['categoria_id'].map(target_mean)
+        freq = df['categoria_id'].value_counts()
+        df['categoria_id_freq_enc'] = df['categoria_id'].map(freq)
+    
+    # Encoding de pais
+    if 'pais' in df.columns:
+        g_target_mean = df.groupby('pais')['fraude'].mean()
+        df['pais_target_enc'] = df['pais'].map(g_target_mean)
+        g_freq = df['pais'].value_counts()
+        df['pais_freq_enc'] = df['pais'].map(g_freq)
+    
+    # Features de producto_nombre
+    if 'producto_nombre' in df.columns:
+        df['producto_num_chars'] = df['producto_nombre'].astype(str).apply(len)
+        df['producto_num_words'] = df['producto_nombre'].astype(str).apply(lambda x: len(x.split()))
+        df['producto_num_special_chars'] = df['producto_nombre'].astype(str).apply(lambda x: len(re.findall(r'[^a-zA-Z0-9\s]', x)))
+        def avg_word_length(s):
+            words = str(s).split()
+            if len(words) == 0:
+                return 0
+            return sum(len(word) for word in words) / len(words)
+        df['producto_avg_word_len'] = df['producto_nombre'].apply(avg_word_length)
+        producto_freq = df['producto_nombre'].value_counts()
+        df['producto_freq'] = df['producto_nombre'].map(producto_freq)
+    
+    # Features temporales
+    if 'fecha' in df.columns:
+        df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
+        df['hora'] = df['fecha'].dt.hour
+        df['dia_semana'] = df['fecha'].dt.dayofweek
+        df['dia_mes'] = df['fecha'].dt.day
+        df['mes'] = df['fecha'].dt.month
+        df['es_fin_de_semana'] = df['dia_semana'].isin([5, 6]).astype(int)
+        df['es_nocturno'] = df['hora'].apply(lambda x: 1 if (x >= 22 or x < 6) else 0)
+        df['es_horario_laboral'] = df['hora'].apply(lambda x: 1 if (x >= 9 and x < 18) else 0)
+        df['hora_sin'] = np.sin(2 * np.pi * df['hora']/24)
+        df['hora_cos'] = np.cos(2 * np.pi * df['hora']/24)
+        df['dia_semana_sin'] = np.sin(2 * np.pi * df['dia_semana']/7)
+        df['dia_semana_cos'] = np.cos(2 * np.pi * df['dia_semana']/7)
+    
+    return df
 
-# Normalizamos las columnas numéricas ------------------#
-# Obtener columnas numéricas automáticamente
+# Función auxiliar para normalizar columnas numéricas
+def normalizar_columnas(df):
+    """Normaliza todas las columnas numéricas entre 0 y 1"""
+    df = df.copy()
+    numerical_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+    for excl in ['fraude', 'row_id']:
+        if excl in numerical_cols:
+            numerical_cols.remove(excl)
+    
+    for col in numerical_cols:
+        min_val = df[col].min()
+        max_val = df[col].max()
+        if min_val != max_val:
+            df[col] = (df[col] - min_val) / (max_val - min_val)
+        else:
+            df[col] = 0.0
+    
+    return df
+
+# Aplicar feature engineering completo
+print("\nAplicando feature engineering completo...")
+fraud_df = aplicar_feature_engineering(fraud_df)
+
+# Normalizar columnas numéricas (después del feature engineering)
+# Esto normalizará tanto las columnas originales como las imputadas
+print("Normalizando columnas numéricas...")
+fraud_df = normalizar_columnas(fraud_df)
+
 numerical_cols = fraud_df.select_dtypes(include=['float64', 'int64']).columns.tolist()
-
-# Excluir la variable objetivo 'fraude' y 'row_id' si estuvieran entre ellas
 for excl in ['fraude', 'row_id']:
     if excl in numerical_cols:
         numerical_cols.remove(excl)
+print(f"Total de columnas numéricas normalizadas: {len(numerical_cols)} columnas")
 
-# Normalizar todas las variables numéricas entre 0 y 1
-for col in numerical_cols:
-    min_val = fraud_df[col].min()
-    max_val = fraud_df[col].max()
-    # Evitar división por cero
-    if min_val != max_val:
-        fraud_df[col] = (fraud_df[col] - min_val) / (max_val - min_val)
-    else:
-        fraud_df[col] = 0.0
+# Identificar columnas imputadas para el reporte
+cols_imputadas = [col for col in fraud_df.columns if col.endswith('_imputado')]
 
-print(f"Columnas numéricas normalizadas entre 0 y 1: {numerical_cols}")
-
-
-# FEATURE ENGINEERING ----------------------------------#
-
-#categoricas:
-# para categoria hacemos => Target Encoding (peso) + Frecuency Encoding
-
-# Encoding de variable categórica 'j' (categoría) usando Target Encoding y Frequency Encoding
-
-# Nos aseguramos de que 'j' existe
-if 'categoria_id' in fraud_df.columns:
-    # Target Encoding de 'categoria_id'
-    target_mean = fraud_df.groupby('categoria_id')['fraude'].mean()
-    fraud_df['categoria_id_target_enc'] = fraud_df['categoria_id'].map(target_mean)
-    
-    # Frequency Encoding de 'categoria_id'
-    freq = fraud_df['categoria_id'].value_counts()
-    fraud_df['categoria_id_freq_enc'] = fraud_df['categoria_id'].map(freq)
-    
-    # Quitamos la columna original 'categoria_id'
-    fraud_df = fraud_df.drop(columns=['categoria_id'])
-    print("Columna 'categoria_id' reemplazada por target encoding y frequency encoding.")
-else:
-    print("La columna 'categoria_id' no existe en el dataframe.")
-
-# para paises "g" => Target Encoding (peso) + Frecuency Encoding
-
-# Encoding de variable categórica 'pais' (país) usando Target Encoding y Frequency Encoding
-if 'pais' in fraud_df.columns:
-    # Target Encoding de 'pais'
-    g_target_mean = fraud_df.groupby('pais')['fraude'].mean()
-    fraud_df['pais_target_enc'] = fraud_df['pais'].map(g_target_mean)
-
-    # Frequency Encoding de 'pais'
-    g_freq = fraud_df['pais'].value_counts()
-    fraud_df['pais_freq_enc'] = fraud_df['pais'].map(g_freq)
-
-    # Quitamos la columna original 'pais'
-    fraud_df = fraud_df.drop(columns=['pais'])
-    print("Columna 'pais' reemplazada por target encoding y frequency encoding.")
-else:
-    print("La columna 'pais' no existe en el dataframe.")
-
-# Para nombre de producto "i" => Sacamos y creamos: # de caracteres,# de palabras, # de caracteres especiales, promedio longitud palabra,
-if 'producto_nombre' in fraud_df.columns:
-    # Número de caracteres
-    fraud_df['producto_num_chars'] = fraud_df['producto_nombre'].astype(str).apply(len)
-    
-    # Número de palabras
-    fraud_df['producto_num_words'] = fraud_df['producto_nombre'].astype(str).apply(lambda x: len(x.split()))
-    
-    # Número de caracteres especiales (caracteres que no son alfanuméricos ni espacios)
-    fraud_df['producto_num_special_chars'] = fraud_df['producto_nombre'].astype(str).apply(lambda x: len(re.findall(r'[^a-zA-Z0-9\s]', x)))
-    
-    # Promedio longitud de palabra
-    def avg_word_length(s):
-        words = str(s).split()
-        if len(words) == 0:
-            return 0
-        return sum(len(word) for word in words) / len(words)
-    fraud_df['producto_avg_word_len'] = fraud_df['producto_nombre'].apply(avg_word_length)
-
-    print("Features creadas para 'producto_nombre': número de caracteres, palabras, caracteres especiales y promedio longitud palabra.")
-else:
-    print("La columna 'producto_nombre' no existe en el dataframe.")
-
-# se_ha_comprado_antes => N comprados
-if 'producto_nombre' in fraud_df.columns:
-    # Frecuencia del nombre de producto 'producto_nombre'
-    producto_freq = fraud_df['producto_nombre'].value_counts()
-    fraud_df['producto_freq'] = fraud_df['producto_nombre'].map(producto_freq)
-    print("Feature creada para 'producto_nombre': frecuencia de nombre de producto.")
-else:
-    print("La columna 'producto_nombre' no existe en el dataframe.")
-
-
-# Fechas y frecuencias:
-# hora, dia_semana, dia_mes, mes => 1 si es fin de semana, 0 si no
-# es_madrugada, es_noche, es_horario_laboral => 1 si es madrugada, noche o horario laboral, 0 si no
-# "Ciclico, sen y coseno"
-if 'fecha' in fraud_df.columns:
-    # Convertimos fecha a datetime si no lo está
-    fraud_df['fecha'] = pd.to_datetime(fraud_df['fecha'], errors='coerce')
-    
-    # Hora del día
-    fraud_df['hora'] = fraud_df['fecha'].dt.hour
-    
-    # Día de la semana (0=lunes, 6=domingo)
-    fraud_df['dia_semana'] = fraud_df['fecha'].dt.dayofweek
-    
-    # Día del mes
-    fraud_df['dia_mes'] = fraud_df['fecha'].dt.day
-    
-    # Mes
-    fraud_df['mes'] = fraud_df['fecha'].dt.month
-
-    # Es fin de semana (sábado = 5, domingo = 6)
-    fraud_df['es_fin_de_semana'] = fraud_df['dia_semana'].isin([5, 6]).astype(int)
-    
-    # Es horario nocturno (ejemplo: entre las 22 y las 6)
-    fraud_df['es_nocturno'] = fraud_df['hora'].apply(lambda x: 1 if (x >= 22 or x < 6) else 0)
-    
-    # Es horario laboral (ejemplo: 9 a 18)
-    fraud_df['es_horario_laboral'] = fraud_df['hora'].apply(lambda x: 1 if (x >= 9 and x < 18) else 0)
-    
-    # Codificación cíclica de hora del día
-    fraud_df['hora_sin'] = np.sin(2 * np.pi * fraud_df['hora']/24)
-    fraud_df['hora_cos'] = np.cos(2 * np.pi * fraud_df['hora']/24)
-    
-    # Codificación cíclica de día de la semana
-    fraud_df['dia_semana_sin'] = np.sin(2 * np.pi * fraud_df['dia_semana']/7)
-    fraud_df['dia_semana_cos'] = np.cos(2 * np.pi * fraud_df['dia_semana']/7)
-
-    print("Columnas de fecha y frecuencia creadas: hora, dia_semana, mes, dia_mes, es_fin_de_semana, es_nocturno, es_horario_laboral, codificaciones cíclicas.")
-else:
-    print("No existe columna 'fecha' en el dataframe.")
-
-# Guardar el DataFrame procesado como CSV
+# Guardar dataset único con ambas versiones (originales e imputadas)
 fraud_df.to_csv("data/processed/fraud_dataset_processed.csv", index=False)
-print("Datos procesados guardados en data/processed/fraud_dataset_processed.csv")
+print("\n✅ Datos procesados guardados en data/processed/fraud_dataset_processed.csv")
+print(f"   - Columnas originales (pueden tener nulos): {len([c for c in fraud_df.columns if not c.endswith('_imputado')])}")
+print(f"   - Columnas imputadas (sin nulos): {len(cols_imputadas)}")
+print(f"   - Total de columnas: {len(fraud_df.columns)}")
+if len(cols_imputadas) > 0:
+    print(f"   - Columnas imputadas: {', '.join(cols_imputadas)}")

@@ -7,3 +7,7 @@ imbalanced-learn
 scipy
 shap
 statsmodels
+xgboost
+lightgbm
+catboost
+joblib
