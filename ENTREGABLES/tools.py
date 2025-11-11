@@ -358,7 +358,8 @@ def seleccionar_variables(
     pais_encoding=False, 
     producto_nombre_encoding=False, 
     fecha_encoding=0,
-    fecha_categoricas=False
+    fecha_categoricas=False,
+    usar_imputadas=False
 ):
     """
     Selecciona variables del dataset procesado basándose en los parámetros especificados.
@@ -396,6 +397,10 @@ def seleccionar_variables(
     fecha_categoricas : bool, default=False
         Si True, incluye variables categóricas temporales (es_fin_de_semana, es_nocturno, 
         es_horario_laboral). Nota: Se solapa con fecha_encoding='normal' o 'both'
+        
+    usar_imputadas : bool, default=False
+        Si True, reemplaza las columnas con valores faltantes (NAs) por sus versiones 
+        imputadas (columnas con sufijo '_imputado'). Si False, mantiene las columnas originales.
         
     Returns:
     --------
@@ -507,5 +512,28 @@ def seleccionar_variables(
     
     # Retornar solo las columnas que existen en el dataframe
     columnas_finales = [col for col in columnas_seleccionadas if col in df.columns]
+    
+    # 8. Si usar_imputadas=True, reemplazar columnas con NAs por sus versiones imputadas
+    if usar_imputadas:
+        columnas_reemplazadas = []
+        columnas_finales_actualizadas = []
+        for col in columnas_finales:
+            col_imputada = f'{col}_imputado'
+            # Si existe la versión imputada y la columna original tiene NAs, usar la imputada
+            if col_imputada in df.columns and col in df.columns:
+                if df[col].isnull().sum() > 0:
+                    # Usar la versión imputada en lugar de la original
+                    columnas_finales_actualizadas.append(col_imputada)
+                    columnas_reemplazadas.append(col)
+                else:
+                    # La columna no tiene NAs, mantener la original
+                    columnas_finales_actualizadas.append(col)
+            else:
+                # No hay versión imputada disponible, mantener la original
+                columnas_finales_actualizadas.append(col)
+        
+        columnas_finales = columnas_finales_actualizadas
+        if columnas_reemplazadas:
+            print(f"Columnas reemplazadas por versiones imputadas: {', '.join(columnas_reemplazadas)}")
     
     return df[columnas_finales].copy()
