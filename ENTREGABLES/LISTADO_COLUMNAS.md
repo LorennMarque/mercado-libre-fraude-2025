@@ -1,6 +1,6 @@
 # Listado de Columnas del Dataset Procesado
 
-**Total de columnas: 54**
+**Total de columnas: 56**
 
 ## Columnas Originales (24)
 
@@ -19,8 +19,8 @@
 13. **l** - float64 - Variable numérica (15 nulos - 0.01%)
 14. **m** - float64 - Variable numérica (594 nulos - 0.24%)
 15. **n** - int64 - Variable numérica (0 nulos)
-16. **o** - object - Variable categórica (183,628 nulos - 73.45%)
-17. **p** - object - Variable categórica (0 nulos)
+16. **o** - Int64 - Variable numérica binaria (Y=1, N=0) (183,628 nulos - 73.45%)
+17. **p** - Int64 - Variable numérica binaria (Y=1, N=0) (0 nulos)
 18. **q** - float64 - Variable numérica (594 nulos - 0.24%)
 19. **r** - int64 - Variable numérica (0 nulos)
 20. **s** - int64 - Variable numérica (0 nulos)
@@ -63,7 +63,7 @@ Estas columnas contienen las versiones imputadas de las columnas originales que 
 42. **producto_avg_word_len** - float64 - Promedio de longitud de palabras (0 nulos)
 43. **producto_freq** - int64 - Frecuencia del nombre del producto (0 nulos)
 
-### Features temporales de fecha (11 columnas)
+### Features temporales de fecha (13 columnas)
 44. **hora** - int32 - Hora del día (0-23) (0 nulos)
 45. **dia_semana** - int32 - Día de la semana (0=Lunes, 6=Domingo) (0 nulos)
 46. **dia_mes** - int32 - Día del mes (1-31) (0 nulos)
@@ -75,17 +75,19 @@ Estas columnas contienen las versiones imputadas de las columnas originales que 
 52. **hora_cos** - float64 - Codificación cíclica coseno de la hora (0 nulos)
 53. **dia_semana_sin** - float64 - Codificación cíclica seno del día de la semana (0 nulos)
 54. **dia_semana_cos** - float64 - Codificación cíclica coseno del día de la semana (0 nulos)
+55. **dia_mes_sin** - float64 - Codificación cíclica seno del día del mes (0 nulos)
+56. **dia_mes_cos** - float64 - Codificación cíclica coseno del día del mes (0 nulos)
 
 ## Resumen
 
-- **Total de columnas**: 54
+- **Total de columnas**: 56
 - **Columnas originales**: 24 (algunas con nulos)
 - **Columnas imputadas**: 7 (todas sin nulos)
-- **Columnas creadas por feature engineering**: 23
+- **Columnas creadas por feature engineering**: 25
 
 ## Notas Importantes
 
-1. **Todas las columnas numéricas** (excepto 'fraude' y 'row_id') han sido **normalizadas entre 0 y 1** en el dataset final.
+1. **Todas las columnas numéricas** (excepto 'fraude', 'row_id' y las variables cíclicas de seno/coseno) han sido **normalizadas entre 0 y 1** en el dataset final. Las variables cíclicas (hora_sin, hora_cos, dia_semana_sin, dia_semana_cos, dia_mes_sin, dia_mes_cos) mantienen sus valores originales entre -1 y 1.
 
 2. **Columnas con nulos en originales**:
    - `b`: 21,474 nulos (8.59%)

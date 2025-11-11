@@ -351,3 +351,161 @@ def evaluate_model_with_thresholds(y_true, y_proba, thresholds=None, model_name=
     
     return df_results
 
+def seleccionar_variables(
+    df, 
+    o_dummies=False, 
+    categoria_encoding=False, 
+    pais_encoding=False, 
+    producto_nombre_encoding=False, 
+    fecha_encoding=0,
+    fecha_categoricas=False
+):
+    """
+    Selecciona variables del dataset procesado basándose en los parámetros especificados.
+    
+    Parámetros:
+    -----------
+    df : pandas.DataFrame
+        DataFrame procesado con todas las columnas disponibles
+        
+    o_dummies : bool, default=False
+        Si True, incluye las dummies de la columna 'o' (o_is_Y, o_is_N, o_is_NA) y 
+        excluye la columna original 'o'. Si False, mantiene la columna original 'o'.
+        
+    categoria_encoding : bool, default=False
+        Si True, incluye encoding de categoria_id (categoria_id_target_enc, categoria_id_freq_enc) 
+        y excluye la columna original 'categoria_id'. Si False, mantiene la columna original 'categoria_id'.
+        
+    pais_encoding : bool, default=False
+        Si True, incluye encoding de pais (pais_target_enc, pais_freq_enc) y excluye la columna 
+        original 'pais'. Si False, mantiene la columna original 'pais'.
+        
+    producto_nombre_encoding : bool, default=False
+        Si True, incluye features de producto_nombre (producto_num_chars, producto_num_words, 
+        producto_num_special_chars, producto_avg_word_len, producto_freq) y excluye la columna 
+        original 'producto_nombre'. Si False, mantiene la columna original 'producto_nombre'.
+        
+    fecha_encoding : int o str, default=0
+        Controla qué variables temporales incluir:
+        - 0 o 'none': Sin encoding de hora/fecha
+        - 1 o 'normal': Solo variables normales (hora, dia_semana, dia_mes, mes)
+        - 2 o 'ciclico': Solo seno/coseno (hora_sin, hora_cos, dia_semana_sin, dia_semana_cos, 
+                        dia_mes_sin, dia_mes_cos)
+        - 3 o 'both': Ambos (normales + cíclicas)
+        
+    fecha_categoricas : bool, default=False
+        Si True, incluye variables categóricas temporales (es_fin_de_semana, es_nocturno, 
+        es_horario_laboral). Nota: Se solapa con fecha_encoding='normal' o 'both'
+        
+    Returns:
+    --------
+    pandas.DataFrame
+        DataFrame con las columnas seleccionadas
+    """
+    
+    # 1. Siempre incluir variables originales sin modificaciones
+    # Columnas numéricas originales que no fueron imputadas ni encodificadas
+    columnas_originales = ['a', 'b', 'c', 'd', 'e', 'f', 'h', 'k', 'l', 'm', 'n', 'q', 'r', 's', 'monto', 'score']
+    
+    # Filtrar solo las que existen en el dataframe
+    columnas_seleccionadas = [col for col in columnas_originales if col in df.columns]
+    
+    # Agregar row_id si existe (es una columna de identificación)
+    if 'row_id' in df.columns:
+        columnas_seleccionadas.append('row_id')
+    
+    # 2. Manejar columna 'o': si o_dummies=True, usar dummies y excluir original; si False, mantener original
+    if o_dummies:
+        o_cols = ['o_is_Y', 'o_is_N', 'o_is_NA']
+        for col in o_cols:
+            if col in df.columns:
+                columnas_seleccionadas.append(col)
+    else:
+        # Si o_dummies=False, mantener la columna original 'o'
+        if 'o' in df.columns:
+            columnas_seleccionadas.append('o')
+    
+    # 3. Manejar categoria_id: si categoria_encoding=True, usar encodings y excluir original; si False, mantener original
+    if categoria_encoding:
+        categoria_cols = ['categoria_id_target_enc', 'categoria_id_freq_enc']
+        for col in categoria_cols:
+            if col in df.columns:
+                columnas_seleccionadas.append(col)
+    else:
+        # Si categoria_encoding=False, mantener la columna original 'categoria_id'
+        if 'categoria_id' in df.columns:
+            columnas_seleccionadas.append('categoria_id')
+    
+    # 4. Manejar pais: si pais_encoding=True, usar encodings y excluir original; si False, mantener original
+    if pais_encoding:
+        pais_cols = ['pais_target_enc', 'pais_freq_enc']
+        for col in pais_cols:
+            if col in df.columns:
+                columnas_seleccionadas.append(col)
+    else:
+        # Si pais_encoding=False, mantener la columna original 'pais'
+        if 'pais' in df.columns:
+            columnas_seleccionadas.append('pais')
+    
+    # 5. Manejar producto_nombre: si producto_nombre_encoding=True, usar features y excluir original; si False, mantener original
+    if producto_nombre_encoding:
+        producto_cols = ['producto_num_chars', 'producto_num_words', 'producto_num_special_chars', 
+                        'producto_avg_word_len', 'producto_freq']
+        for col in producto_cols:
+            if col in df.columns:
+                columnas_seleccionadas.append(col)
+    else:
+        # Si producto_nombre_encoding=False, mantener la columna original 'producto_nombre'
+        if 'producto_nombre' in df.columns:
+            columnas_seleccionadas.append('producto_nombre')
+    
+    # 6. Agregar variables temporales según fecha_encoding
+    # Normalizar el parámetro fecha_encoding
+    if isinstance(fecha_encoding, str):
+        fecha_encoding = fecha_encoding.lower()
+        if fecha_encoding in ['none', '0']:
+            fecha_encoding = 0
+        elif fecha_encoding in ['normal', '1']:
+            fecha_encoding = 1
+        elif fecha_encoding in ['ciclico', 'ciclic', '2']:
+            fecha_encoding = 2
+        elif fecha_encoding in ['both', 'ambos', '3']:
+            fecha_encoding = 3
+    
+    # Variables temporales normales
+    fecha_normales = ['hora', 'dia_semana', 'dia_mes', 'mes']
+    
+    # Variables temporales cíclicas
+    fecha_ciclicas = ['hora_sin', 'hora_cos', 'dia_semana_sin', 'dia_semana_cos', 'dia_mes_sin', 'dia_mes_cos']
+    
+    if fecha_encoding == 1 or fecha_encoding == 'normal':
+        # Solo variables normales
+        for col in fecha_normales:
+            if col in df.columns:
+                columnas_seleccionadas.append(col)
+    elif fecha_encoding == 2 or fecha_encoding == 'ciclico':
+        # Solo variables cíclicas
+        for col in fecha_ciclicas:
+            if col in df.columns:
+                columnas_seleccionadas.append(col)
+    elif fecha_encoding == 3 or fecha_encoding == 'both':
+        # Ambas (normales + cíclicas)
+        for col in fecha_normales + fecha_ciclicas:
+            if col in df.columns:
+                columnas_seleccionadas.append(col)
+    # Si fecha_encoding == 0 o 'none', no agregamos ninguna variable temporal
+    
+    # 7. Agregar fecha_categoricas si se solicita (solo si no están ya incluidas)
+    if fecha_categoricas:
+        fecha_cat_cols = ['es_fin_de_semana', 'es_nocturno', 'es_horario_laboral']
+        for col in fecha_cat_cols:
+            if col in df.columns and col not in columnas_seleccionadas:
+                columnas_seleccionadas.append(col)
+    
+    # Eliminar duplicados manteniendo el orden
+    columnas_seleccionadas = list(dict.fromkeys(columnas_seleccionadas))
+    
+    # Retornar solo las columnas que existen en el dataframe
+    columnas_finales = [col for col in columnas_seleccionadas if col in df.columns]
+    
+    return df[columnas_finales].copy()

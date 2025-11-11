@@ -20,6 +20,11 @@ fraud_df = pd.read_csv('data/raw/fraud_dataset_v2.csv')
 # LIMPIEZA DE DATOS Y NOMBRE DE COLUMNAS   #
 ############################################
 
+# Eliminar columna "Unnamed: 0" si existe
+if 'Unnamed: 0' in fraud_df.columns:
+    fraud_df = fraud_df.drop(columns=['Unnamed: 0'])
+    print("Columna 'Unnamed: 0' eliminada")
+
 # Renombramos Columnas ---------------------#
 fraud_df = fraud_df.rename(columns={
     "g": "pais",
@@ -53,6 +58,15 @@ o_dummies = o_dummies.rename(columns={
 fraud_df = pd.concat([fraud_df, o_dummies], axis=1)
 
 print("Columna 'o' procesada, dummies creados (columna original 'o' mantenida)")
+
+# Convertir columnas 'o' y 'p' a numéricas (Y=1, N=0, manteniendo NA en 'o')
+if 'o' in fraud_df.columns:
+    fraud_df['o'] = fraud_df['o'].map({'Y': 1, 'N': 0}).astype('Int64')  # Int64 permite NA
+    print("Columna 'o' convertida a numérica (Y=1, N=0, NA mantenidos)")
+
+if 'p' in fraud_df.columns:
+    fraud_df['p'] = fraud_df['p'].map({'Y': 1, 'N': 0}).astype('Int64')  # Int64 permite NA
+    print("Columna 'p' convertida a numérica (Y=1, N=0)")
 
 # MANTENEMOS la columna 'r' - NO la eliminamos
 # fraud_df = fraud_df.drop(columns=['r'])  # COMENTADO: mantenemos todas las columnas
@@ -102,54 +116,59 @@ def aplicar_feature_engineering(df):
     # Encoding de categoria_id
     if 'categoria_id' in df.columns:
         target_mean = df.groupby('categoria_id')['fraude'].mean()
-        df['categoria_id_target_enc'] = df['categoria_id'].map(target_mean)
+        df['categoria_id_target_enc'] = df['categoria_id'].map(target_mean).fillna(0.0).astype(float)
         freq = df['categoria_id'].value_counts()
-        df['categoria_id_freq_enc'] = df['categoria_id'].map(freq)
+        df['categoria_id_freq_enc'] = df['categoria_id'].map(freq).fillna(0).astype(int)
     
     # Encoding de pais
     if 'pais' in df.columns:
         g_target_mean = df.groupby('pais')['fraude'].mean()
-        df['pais_target_enc'] = df['pais'].map(g_target_mean)
+        df['pais_target_enc'] = df['pais'].map(g_target_mean).fillna(0.0).astype(float)
         g_freq = df['pais'].value_counts()
-        df['pais_freq_enc'] = df['pais'].map(g_freq)
+        df['pais_freq_enc'] = df['pais'].map(g_freq).fillna(0).astype(int)
     
     # Features de producto_nombre
     if 'producto_nombre' in df.columns:
-        df['producto_num_chars'] = df['producto_nombre'].astype(str).apply(len)
-        df['producto_num_words'] = df['producto_nombre'].astype(str).apply(lambda x: len(x.split()))
-        df['producto_num_special_chars'] = df['producto_nombre'].astype(str).apply(lambda x: len(re.findall(r'[^a-zA-Z0-9\s]', x)))
+        df['producto_num_chars'] = df['producto_nombre'].astype(str).apply(len).astype(int)
+        df['producto_num_words'] = df['producto_nombre'].astype(str).apply(lambda x: len(x.split())).astype(int)
+        df['producto_num_special_chars'] = df['producto_nombre'].astype(str).apply(lambda x: len(re.findall(r'[^a-zA-Z0-9\s]', x))).astype(int)
         def avg_word_length(s):
             words = str(s).split()
             if len(words) == 0:
-                return 0
-            return sum(len(word) for word in words) / len(words)
-        df['producto_avg_word_len'] = df['producto_nombre'].apply(avg_word_length)
+                return 0.0
+            return float(sum(len(word) for word in words) / len(words))
+        df['producto_avg_word_len'] = df['producto_nombre'].apply(avg_word_length).astype(float)
         producto_freq = df['producto_nombre'].value_counts()
-        df['producto_freq'] = df['producto_nombre'].map(producto_freq)
+        df['producto_freq'] = df['producto_nombre'].map(producto_freq).fillna(0).astype(int)
     
     # Features temporales
     if 'fecha' in df.columns:
         df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
-        df['hora'] = df['fecha'].dt.hour
-        df['dia_semana'] = df['fecha'].dt.dayofweek
-        df['dia_mes'] = df['fecha'].dt.day
-        df['mes'] = df['fecha'].dt.month
+        df['hora'] = df['fecha'].dt.hour.fillna(0).astype(int)
+        df['dia_semana'] = df['fecha'].dt.dayofweek.fillna(0).astype(int)
+        df['dia_mes'] = df['fecha'].dt.day.fillna(1).astype(int)
+        df['mes'] = df['fecha'].dt.month.fillna(1).astype(int)
         df['es_fin_de_semana'] = df['dia_semana'].isin([5, 6]).astype(int)
-        df['es_nocturno'] = df['hora'].apply(lambda x: 1 if (x >= 22 or x < 6) else 0)
-        df['es_horario_laboral'] = df['hora'].apply(lambda x: 1 if (x >= 9 and x < 18) else 0)
-        df['hora_sin'] = np.sin(2 * np.pi * df['hora']/24)
-        df['hora_cos'] = np.cos(2 * np.pi * df['hora']/24)
-        df['dia_semana_sin'] = np.sin(2 * np.pi * df['dia_semana']/7)
-        df['dia_semana_cos'] = np.cos(2 * np.pi * df['dia_semana']/7)
+        df['es_nocturno'] = df['hora'].apply(lambda x: 1 if (x >= 22 or x < 6) else 0).astype(int)
+        df['es_horario_laboral'] = df['hora'].apply(lambda x: 1 if (x >= 9 and x < 18) else 0).astype(int)
+        df['hora_sin'] = np.sin(2 * np.pi * df['hora']/24).astype(float)
+        df['hora_cos'] = np.cos(2 * np.pi * df['hora']/24).astype(float)
+        df['dia_semana_sin'] = np.sin(2 * np.pi * df['dia_semana']/7).astype(float)
+        df['dia_semana_cos'] = np.cos(2 * np.pi * df['dia_semana']/7).astype(float)
+        df['dia_mes_sin'] = np.sin(2 * np.pi * df['dia_mes']/31).astype(float)
+        df['dia_mes_cos'] = np.cos(2 * np.pi * df['dia_mes']/31).astype(float)
     
     return df
 
 # Función auxiliar para normalizar columnas numéricas
 def normalizar_columnas(df):
-    """Normaliza todas las columnas numéricas entre 0 y 1"""
+    """Normaliza todas las columnas numéricas entre 0 y 1, excepto las variables cíclicas (seno/coseno)"""
     df = df.copy()
     numerical_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
-    for excl in ['fraude', 'row_id']:
+    # Excluir variables objetivo, identificadores y variables cíclicas (seno/coseno)
+    excluir = ['fraude', 'row_id', 'hora_sin', 'hora_cos', 'dia_semana_sin', 'dia_semana_cos', 
+               'dia_mes_sin', 'dia_mes_cos']
+    for excl in excluir:
         if excl in numerical_cols:
             numerical_cols.remove(excl)
     
