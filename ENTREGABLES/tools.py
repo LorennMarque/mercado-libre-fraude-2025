@@ -359,7 +359,8 @@ def seleccionar_variables(
     producto_nombre_encoding=False, 
     fecha_encoding=0,
     fecha_categoricas=False,
-    usar_imputadas=False
+    usar_imputadas=False,
+    remove_r=False
 ):
     """
     Selecciona variables del dataset procesado basándose en los parámetros especificados.
@@ -401,7 +402,10 @@ def seleccionar_variables(
     usar_imputadas : bool, default=False
         Si True, reemplaza las columnas con valores faltantes (NAs) por sus versiones 
         imputadas (columnas con sufijo '_imputado'). Si False, mantiene las columnas originales.
-        
+    
+    remove_r : bool, default=False
+        Si True, excluye la columna 'r' de las variables seleccionadas. Si False, incluye 'r'.
+    
     Returns:
     --------
     pandas.DataFrame
@@ -410,10 +414,14 @@ def seleccionar_variables(
     
     # 1. Siempre incluir variables originales sin modificaciones
     # Columnas numéricas originales que no fueron imputadas ni encodificadas
-    columnas_originales = ['a', 'b', 'c', 'd', 'e', 'f', 'h', 'k', 'l', 'm', 'n', 'q', 'r', 's', 'monto', 'score']
+    columnas_originales = ['a', 'b', 'c', 'd', 'e', 'f', 'h', 'k', 'l', 'm', 'n', 'q', 'r', 's', 'monto', 'score', 'fraude']
     
     # Filtrar solo las que existen en el dataframe
     columnas_seleccionadas = [col for col in columnas_originales if col in df.columns]
+    
+    # Remover 'r' si remove_r=True
+    if remove_r and 'r' in columnas_seleccionadas:
+        columnas_seleccionadas.remove('r')
     
     # Agregar row_id si existe (es una columna de identificación)
     if 'row_id' in df.columns:
