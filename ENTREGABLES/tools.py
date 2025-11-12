@@ -22,6 +22,14 @@ from sklearn.metrics import (
     matthews_corrcoef
 )
 from sklearn.calibration import calibration_curve
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+try:
+    import ipywidgets as widgets
+    from IPython.display import display
+    IPYWIDGETS_AVAILABLE = True
+except ImportError:
+    IPYWIDGETS_AVAILABLE = False
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -350,6 +358,320 @@ def evaluate_model_with_thresholds(y_true, y_proba, thresholds=None, model_name=
     print(f"   F1 Score en umbral óptimo: {optimal_f1:.4f}")
     
     return df_results
+
+
+def plot_costo_interactivo(y_true, y_proba, costo_fp_inicial=5.0, costo_fn_inicial=100.0, 
+                           prop_positivos_inicial=None, model_name="Modelo"):
+    """
+    Crea un gráfico interactivo con Plotly que muestra el costo cada 1000 registros
+    en función del threshold del modelo, con inputs interactivos para ajustar parámetros.
+    
+    La función calcula el costo como: (FP * costo_FP + FN * costo_FN) / total_samples * 1000
+    y permite ajustar interactivamente los costos de FP y FN, así como la proporción de positivos.
+    
+    Parameters:
+    -----------
+    y_true : array-like
+        Valores reales (ground truth)
+    y_proba : array-like
+        Probabilidades predichas por el modelo
+    costo_fp_inicial : float, default=5.0
+        Costo inicial de un False Positive
+    costo_fn_inicial : float, default=100.0
+        Costo inicial de un False Negative
+    prop_positivos_inicial : float, optional
+        Proporción inicial de positivos reales. Si es None, se calcula de y_true.
+        Nota: Este parámetro afecta el cálculo del costo al ajustar la escala.
+    model_name : str, default="Modelo"
+        Nombre del modelo para el título del gráfico
+    
+    Returns:
+    --------
+    plotly.graph_objects.Figure o widgets interactivos
+        Si ipywidgets está disponible, retorna widgets interactivos. 
+        Si no, retorna la figura de Plotly estática.
+    """
+    y_true = np.array(y_true)
+    y_proba = np.array(y_proba)
+    
+    # Calcular proporción inicial si no se proporciona
+    if prop_positivos_inicial is None:
+        prop_positivos_inicial = y_true.mean()
+    
+    # Generar rango de thresholds (asegurar que esté entre 0 y 1)
+    thresholds = np.linspace(0.0, 1.0, 200)
+    
+    # Pre-calcular FP y FN para cada threshold (esto se hace una sola vez)
+    fp_counts = []
+    fn_counts = []
+    
+    for threshold in thresholds:
+        y_pred = (y_proba >= threshold).astype(int)
+        cm = confusion_matrix(y_true, y_pred)
+        if cm.size == 4:
+            tn, fp, fn, tp = cm.ravel()
+        else:
+            # Caso especial cuando solo hay una clase
+            if len(np.unique(y_pred)) == 1:
+                if y_pred[0] == 0:
+                    tn, fp, fn, tp = len(y_true) - y_true.sum(), 0, y_true.sum(), 0
+                else:
+                    tn, fp, fn, tp = 0, (y_true == 0).sum(), 0, y_true.sum()
+            else:
+                tn, fp, fn, tp = 0, 0, 0, 0
+        
+        fp_counts.append(fp)
+        fn_counts.append(fn)
+    
+    fp_counts = np.array(fp_counts)
+    fn_counts = np.array(fn_counts)
+    total_samples = len(y_true)
+    
+    # Calcular proporción original
+    prop_original = y_true.mean()
+    prop_negativos_original = 1 - prop_original
+    
+    # Función para calcular costo normalizado cada 1000 registros
+    def calcular_costo(costo_fp, costo_fn, prop_positivos=None):
+        # Si no se especifica proporción, usar la original
+        if prop_positivos is None:
+            prop_positivos = prop_original
+        
+        # Ajustar FP y FN según la nueva proporción
+        # FP depende de los negativos (predice positivo pero es negativo)
+        # FN depende de los positivos (predice negativo pero es positivo)
+        prop_negativos_nueva = 1 - prop_positivos
+        
+        # Calcular factores de escala
+        if prop_negativos_original > 0:
+            factor_fp = prop_negativos_nueva / prop_negativos_original
+        else:
+            factor_fp = 1.0
+            
+        if prop_original > 0:
+            factor_fn = prop_positivos / prop_original
+        else:
+            factor_fn = 1.0
+        
+        # Ajustar FP y FN proporcionalmente
+        fp_ajustados = fp_counts * factor_fp
+        fn_ajustados = fn_counts * factor_fn
+        
+        # El costo total es: FP_ajustado * costo_FP + FN_ajustado * costo_FN
+        costo_total = fp_ajustados * costo_fp + fn_ajustados * costo_fn
+        
+        # Normalizar a cada 1000 registros
+        # Usar el total de muestras ajustado según la nueva proporción
+        # (aunque el total sigue siendo el mismo, la distribución cambia)
+        costo_por_1000 = (costo_total / total_samples) * 1000
+        return costo_por_1000
+    
+    # Calcular costo inicial
+    costo_inicial = calcular_costo(costo_fp_inicial, costo_fn_inicial, prop_positivos_inicial)
+    
+    # Encontrar threshold óptimo (mínimo costo)
+    idx_optimo = np.argmin(costo_inicial)
+    threshold_optimo = thresholds[idx_optimo]
+    costo_optimo = costo_inicial[idx_optimo]
+    
+    # Si ipywidgets está disponible, crear inputs interactivos con FigureWidget
+    if IPYWIDGETS_AVAILABLE:
+        # Crear figura interactiva usando FigureWidget (permite actualización en tiempo real)
+        fig = go.FigureWidget(
+            data=[
+                go.Scatter(
+                    x=thresholds,
+                    y=costo_inicial,
+                    mode='lines',
+                    name='Costo por 1000 registros',
+                    line=dict(color='#1f77b4', width=3),
+                    hovertemplate='<b>Threshold:</b> %{x:.3f}<br>' +
+                                 '<b>Costo/1000:</b> %{y:.2f}<br>' +
+                                 '<b>FP:</b> %{customdata[0]}<br>' +
+                                 '<b>FN:</b> %{customdata[1]}<br>' +
+                                 '<extra></extra>',
+                    customdata=np.column_stack((fp_counts, fn_counts))
+                ),
+                go.Scatter(
+                    x=[threshold_optimo],
+                    y=[costo_optimo],
+                    mode='markers',
+                    name='Umbral Óptimo',
+                    marker=dict(
+                        size=10,
+                        color='red',
+                        line=dict(width=1, color='darkred')
+                    ),
+                    hovertemplate='<b>Threshold Óptimo:</b> %{x:.3f}<br>' +
+                                 '<b>Costo Mínimo/1000:</b> %{y:.2f}<br>' +
+                                 '<extra></extra>'
+                )
+            ]
+        )
+        
+        # Configurar layout con eje x acotado entre 0 y 1
+        fig.update_layout(
+            title={
+                'text': f'Análisis de Costo por Threshold: {model_name}<br>' +
+                       f'<sub>Costo mínimo: {costo_optimo:.2f} por 1000 registros en threshold {threshold_optimo:.3f}</sub>',
+                'x': 0.5,
+                'xanchor': 'center',
+                'font': {'size': 16}
+            },
+            xaxis=dict(
+                title='Threshold',
+                titlefont=dict(size=14),
+                gridcolor='lightgray',
+                range=[0, 1]  # Acotar eje x entre 0 y 1
+            ),
+            yaxis=dict(
+                title='Costo por 1000 registros',
+                titlefont=dict(size=14),
+                gridcolor='lightgray'
+            ),
+            hovermode='x unified',
+            template='plotly_white',
+            height=600,
+            margin=dict(l=80, r=50, t=100, b=50),
+            showlegend=True,
+            legend=dict(
+                x=0.02,
+                y=0.98,
+                bgcolor='rgba(255, 255, 255, 0.8)',
+                bordercolor='black',
+                borderwidth=1
+            )
+        )
+        
+        # Crear widgets de entrada
+        input_fp = widgets.FloatText(
+            value=costo_fp_inicial,
+            description='Costo FP:',
+            style={'description_width': 'initial'},
+            layout=widgets.Layout(width='200px')
+        )
+        
+        input_fn = widgets.FloatText(
+            value=costo_fn_inicial,
+            description='Costo FN:',
+            style={'description_width': 'initial'},
+            layout=widgets.Layout(width='200px')
+        )
+        
+        input_prop = widgets.FloatText(
+            value=prop_positivos_inicial,
+            description='Prop. Positivos:',
+            style={'description_width': 'initial'},
+            layout=widgets.Layout(width='200px'),
+            min=0.01,
+            max=0.99,
+            step=0.01
+        )
+        
+        # Función para actualizar el gráfico
+        def actualizar_grafico(change=None):
+            costo_fp = input_fp.value
+            costo_fn = input_fn.value
+            prop_positivos = input_prop.value
+            
+            costo_calc = calcular_costo(costo_fp, costo_fn, prop_positivos)
+            idx_opt = np.argmin(costo_calc)
+            threshold_opt = thresholds[idx_opt]
+            costo_opt = costo_calc[idx_opt]
+            
+            # Actualizar datos del gráfico (FigureWidget permite actualización directa)
+            with fig.batch_update():
+                fig.data[0].y = costo_calc
+                fig.data[1].x = [threshold_opt]
+                fig.data[1].y = [costo_opt]
+                fig.layout.title.text = (
+                    f'Análisis de Costo por Threshold: {model_name}<br>' +
+                    f'<sub>Costo mínimo: {costo_opt:.2f} por 1000 registros en threshold {threshold_opt:.3f}</sub>'
+                )
+        
+        # Conectar widgets a la función de actualización
+        input_fp.observe(actualizar_grafico, names='value')
+        input_fn.observe(actualizar_grafico, names='value')
+        input_prop.observe(actualizar_grafico, names='value')
+        
+        # Crear contenedor con widgets y gráfico
+        container = widgets.VBox([
+            widgets.HBox([input_fp, input_fn, input_prop]),
+            fig
+        ])
+        
+        return container
+    else:
+        # Si no hay ipywidgets, crear figura estática
+        fig = go.Figure(
+            data=[
+                go.Scatter(
+                    x=thresholds,
+                    y=costo_inicial,
+                    mode='lines',
+                    name='Costo por 1000 registros',
+                    line=dict(color='#1f77b4', width=3),
+                    hovertemplate='<b>Threshold:</b> %{x:.3f}<br>' +
+                                 '<b>Costo/1000:</b> %{y:.2f}<br>' +
+                                 '<b>FP:</b> %{customdata[0]}<br>' +
+                                 '<b>FN:</b> %{customdata[1]}<br>' +
+                                 '<extra></extra>',
+                    customdata=np.column_stack((fp_counts, fn_counts))
+                ),
+                go.Scatter(
+                    x=[threshold_optimo],
+                    y=[costo_optimo],
+                    mode='markers',
+                    name='Umbral Óptimo',
+                    marker=dict(
+                        size=10,
+                        color='red',
+                        line=dict(width=1, color='darkred')
+                    ),
+                    hovertemplate='<b>Threshold Óptimo:</b> %{x:.3f}<br>' +
+                                 '<b>Costo Mínimo/1000:</b> %{y:.2f}<br>' +
+                                 '<extra></extra>'
+                )
+            ]
+        )
+        
+        # Configurar layout con eje x acotado entre 0 y 1
+        fig.update_layout(
+            title={
+                'text': f'Análisis de Costo por Threshold: {model_name}<br>' +
+                       f'<sub>Costo mínimo: {costo_optimo:.2f} por 1000 registros en threshold {threshold_optimo:.3f}</sub>',
+                'x': 0.5,
+                'xanchor': 'center',
+                'font': {'size': 16}
+            },
+            xaxis=dict(
+                title='Threshold',
+                titlefont=dict(size=14),
+                gridcolor='lightgray',
+                range=[0, 1]  # Acotar eje x entre 0 y 1
+            ),
+            yaxis=dict(
+                title='Costo por 1000 registros',
+                titlefont=dict(size=14),
+                gridcolor='lightgray'
+            ),
+            hovermode='x unified',
+            template='plotly_white',
+            height=600,
+            margin=dict(l=80, r=50, t=100, b=50),
+            showlegend=True,
+            legend=dict(
+                x=0.02,
+                y=0.98,
+                bgcolor='rgba(255, 255, 255, 0.8)',
+                bordercolor='black',
+                borderwidth=1
+            )
+        )
+        
+        print("⚠️ ipywidgets no está disponible. Instala con: pip install ipywidgets")
+        print("   Para interactividad, usa: fig.show() y modifica los parámetros manualmente.")
+        return fig
 
 def seleccionar_variables(
     df, 
