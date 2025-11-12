@@ -38,8 +38,9 @@ plt.style.use('seaborn-v0_8-darkgrid')
 sns.set_palette("husl")
 
 
-def evaluate_model(y_true, y_pred, y_proba=None, model_name="Modelo", 
-                   save_plots=False, output_dir="plots/", show_plots=True):
+def evaluate_model(y_true, y_pred=None, y_proba=None, threshold=None, model_name="Modelo", 
+                   save_plots=False, output_dir="plots/", show_plots=True,
+                   costo_fp=None, costo_fn=None, prop_positivos=None):
     """
     Evalúa un modelo de clasificación binaria con métricas y visualizaciones completas.
     Optimizado para detección de fraude (clases desbalanceadas).
@@ -48,10 +49,15 @@ def evaluate_model(y_true, y_pred, y_proba=None, model_name="Modelo",
     -----------
     y_true : array-like
         Valores reales (ground truth)
-    y_pred : array-like
-        Predicciones binarias del modelo
+    y_pred : array-like, optional
+        Predicciones binarias del modelo. Si es None y se proporciona threshold, 
+        se calcula a partir de y_proba y threshold.
     y_proba : array-like, optional
-        Probabilidades predichas (para clase positiva). Si es None, se calcula a partir de y_pred
+        Probabilidades predichas (para clase positiva). Requerido si se especifica threshold.
+    threshold : float, optional
+        Umbral de decisión para convertir probabilidades en predicciones binarias.
+        Si se proporciona, se usa y_proba para calcular y_pred aplicando este threshold.
+        Si es None, se usa y_pred directamente (o se calcula a partir de y_proba con threshold=0.5).
     model_name : str, default="Modelo"
         Nombre del modelo para los títulos de los gráficos
     save_plots : bool, default=False
@@ -60,6 +66,12 @@ def evaluate_model(y_true, y_pred, y_proba=None, model_name="Modelo",
         Directorio donde guardar los plots
     show_plots : bool, default=True
         Si True, muestra los plots
+    costo_fp : float, optional
+        Costo de un False Positive. Si se proporciona junto con costo_fn, se calcula el costo total.
+    costo_fn : float, optional
+        Costo de un False Negative. Si se proporciona junto con costo_fp, se calcula el costo total.
+    prop_positivos : float, optional
+        Proporción de positivos para ajustar el cálculo del costo. Si es None, se usa la proporción real.
     
     Returns:
     --------
@@ -68,13 +80,28 @@ def evaluate_model(y_true, y_pred, y_proba=None, model_name="Modelo",
     
     # Convertir a numpy arrays
     y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
     
-    # Si no se proporcionan probabilidades, crear array binario
-    if y_proba is None:
-        y_proba = y_pred.astype(float)
-    else:
+    # Manejar threshold: si se proporciona, calcular y_pred a partir de y_proba
+    if threshold is not None:
+        if y_proba is None:
+            raise ValueError("Si se especifica 'threshold', se debe proporcionar 'y_proba'")
         y_proba = np.array(y_proba)
+        y_pred = (y_proba >= threshold).astype(int)
+    else:
+        # Si no hay threshold, usar y_pred directamente o calcularlo
+        if y_pred is None:
+            if y_proba is None:
+                raise ValueError("Debe proporcionarse 'y_pred' o 'y_proba' (con threshold)")
+            # Si solo hay y_proba sin threshold, usar threshold=0.5 por defecto
+            y_proba = np.array(y_proba)
+            y_pred = (y_proba >= 0.5).astype(int)
+        else:
+            y_pred = np.array(y_pred)
+            # Si no se proporcionan probabilidades, crear array binario
+            if y_proba is None:
+                y_proba = y_pred.astype(float)
+            else:
+                y_proba = np.array(y_proba)
     
     # Calcular métricas básicas
     accuracy = accuracy_score(y_true, y_pred)
@@ -104,6 +131,39 @@ def evaluate_model(y_true, y_pred, y_proba=None, model_name="Modelo",
     class_distribution = pd.Series(y_true).value_counts().sort_index()
     fraud_percentage = (y_true.sum() / len(y_true)) * 100
     
+    # Determinar el threshold usado
+    threshold_usado = threshold if threshold is not None else (0.5 if y_proba is not None else None)
+    
+    # Calcular costo si se proporcionan los parámetros
+    costo_por_1000 = None
+    if costo_fp is not None and costo_fn is not None:
+        # Calcular proporción para ajuste
+        if prop_positivos is None:
+            prop_positivos = fraud_percentage / 100.0
+        
+        prop_original = fraud_percentage / 100.0
+        prop_negativos_original = 1 - prop_original
+        prop_negativos_nueva = 1 - prop_positivos
+        
+        # Calcular factores de escala
+        if prop_negativos_original > 0:
+            factor_fp = prop_negativos_nueva / prop_negativos_original
+        else:
+            factor_fp = 1.0
+            
+        if prop_original > 0:
+            factor_fn = prop_positivos / prop_original
+        else:
+            factor_fn = 1.0
+        
+        # Ajustar FP y FN
+        fp_ajustado = fp * factor_fp
+        fn_ajustado = fn * factor_fn
+        
+        # Calcular costo
+        costo_total = fp_ajustado * costo_fp + fn_ajustado * costo_fn
+        costo_por_1000 = (costo_total / len(y_true)) * 1000
+    
     # Crear diccionario de métricas
     metrics = {
         'accuracy': accuracy,
@@ -122,13 +182,20 @@ def evaluate_model(y_true, y_pred, y_proba=None, model_name="Modelo",
         'false_positives': int(fp),
         'false_negatives': int(fn),
         'fraud_percentage': fraud_percentage,
-        'total_samples': len(y_true)
+        'total_samples': len(y_true),
+        'threshold': threshold_usado
     }
+    
+    # Agregar costo si se calculó
+    if costo_por_1000 is not None:
+        metrics['costo_por_1000'] = costo_por_1000
     
     # Imprimir métricas
     print("=" * 80)
     print(f"EVALUACIÓN DEL MODELO: {model_name}")
     print("=" * 80)
+    if threshold_usado is not None:
+        print(f"\n📌 Threshold usado: {threshold_usado:.4f}")
     print(f"\n📊 DISTRIBUCIÓN DE CLASES:")
     print(f"   Clase 0 (No Fraude): {class_distribution.get(0, 0):,} ({100-fraud_percentage:.2f}%)")
     print(f"   Clase 1 (Fraude):    {class_distribution.get(1, 0):,} ({fraud_percentage:.2f}%)")
@@ -148,6 +215,13 @@ def evaluate_model(y_true, y_pred, y_proba=None, model_name="Modelo",
     print(f"   Matthews Corr Coef:  {mcc:.4f}")
     print(f"   NPV:                 {npv:.4f}")
     print(f"   False Positive Rate: {fpr:.4f}")
+    
+    # Mostrar costo si se calculó
+    if costo_por_1000 is not None:
+        print(f"\n💰 COSTO:")
+        print(f"   Costo por 1000 registros: {costo_por_1000:.2f}")
+        if costo_fp is not None and costo_fn is not None:
+            print(f"   (Costo FP: {costo_fp:.1f}, Costo FN: {costo_fn:.1f})")
     
     print(f"\n🔢 MATRIZ DE CONFUSIÓN:")
     print(f"                    Predicción")
@@ -358,6 +432,451 @@ def evaluate_model_with_thresholds(y_true, y_proba, thresholds=None, model_name=
     print(f"   F1 Score en umbral óptimo: {optimal_f1:.4f}")
     
     return df_results
+
+
+def generar_thresholds(y_proba, max_thresholds=200):
+    """
+    Genera thresholds adaptativos basados en las probabilidades únicas del modelo.
+    
+    Parameters:
+    -----------
+    y_proba : array-like
+        Probabilidades predichas por el modelo
+    max_thresholds : int, default=200
+        Número máximo de thresholds a generar
+    
+    Returns:
+    --------
+    array
+        Array de thresholds adaptativos
+    """
+    y_proba = np.array(y_proba)
+    # Obtener valores únicos redondeados a 4 decimales
+    vals = np.unique(np.round(y_proba, 4))
+    
+    if len(vals) > max_thresholds:
+        # Subsamplear de forma uniforme si hay demasiados
+        vals = np.linspace(vals.min(), vals.max(), max_thresholds)
+    
+    return vals
+
+
+def optimizar_threshold_costo_cv(model, X, y, cv, costo_fp=5.0, costo_fn=100.0, 
+                                 prop_positivos=None, thresholds=None, model_name="Modelo",
+                                 y_proba_cv=None):
+    """
+    Optimiza el threshold basándose en la función de costo usando Cross-Validation.
+    
+    Parameters:
+    -----------
+    model : sklearn estimator
+        Modelo que implementa predict_proba
+    X : array-like
+        Features para entrenamiento
+    y : array-like
+        Target (valores reales)
+    cv : cross-validation splitter
+        Estrategia de cross-validation (ej: StratifiedKFold)
+    costo_fp : float, default=5.0
+        Costo de un False Positive
+    costo_fn : float, default=100.0
+        Costo de un False Negative
+    prop_positivos : float, optional
+        Proporción de positivos. Si es None, se calcula de y
+    thresholds : array-like, optional
+        Lista de thresholds a evaluar. Si es None, usa np.linspace(0.01, 0.99, 100)
+    model_name : str, default="Modelo"
+        Nombre del modelo
+    y_proba_cv : array-like, optional
+        Probabilidades de CV ya calculadas. Si es None, se calculan manualmente por fold.
+        Útil para evitar recalcular los folds cuando se optimizan múltiples métricas.
+    
+    Returns:
+    --------
+    dict : Diccionario con threshold óptimo, costo mínimo y resultados por fold
+    """
+    if prop_positivos is None:
+        prop_positivos = np.mean(y)
+    
+    # Convertir a arrays numpy
+    X = np.array(X)
+    y = np.array(y)
+    
+    # Calcular probabilidades por fold manualmente para garantizar correspondencia exacta
+    # Esto asegura que las métricas por fold correspondan a los folds reales del CV
+    # Siempre calculamos y_proba_por_fold porque lo necesitamos para las métricas por fold
+    y_proba_por_fold = {}  # Diccionario: índice -> probabilidad
+    for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X, y)):
+        # Entrenar modelo en el fold de entrenamiento
+        model_fold = type(model)(**model.get_params())
+        model_fold.fit(X[train_idx], y[train_idx])
+        # Predecir probabilidades en el fold de test
+        y_proba_fold = model_fold.predict_proba(X[test_idx])[:, 1]
+        # Almacenar probabilidades con sus índices originales
+        for idx, proba in zip(test_idx, y_proba_fold):
+            y_proba_por_fold[idx] = proba
+    
+    # Construir y_proba_cv desde y_proba_por_fold (evita usar cross_val_predict)
+    if y_proba_cv is None:
+        # Construir array en el orden correcto desde el diccionario
+        y_proba_cv = np.array([y_proba_por_fold[i] for i in range(len(y))])
+    else:
+        # Si se proporciona y_proba_cv, lo usamos directamente
+        # (y_proba_por_fold ya se calculó arriba para las métricas por fold)
+        y_proba_cv = np.array(y_proba_cv)
+    
+    # Generar thresholds adaptativos si no se proporcionan
+    if thresholds is None:
+        thresholds = generar_thresholds(y_proba_cv, max_thresholds=200)
+    
+    # Calcular proporción original
+    prop_original = np.mean(y)
+    prop_negativos_original = 1 - prop_original
+    prop_negativos_nueva = 1 - prop_positivos
+    
+    # Calcular factores de escala
+    if prop_negativos_original > 0:
+        factor_fp = prop_negativos_nueva / prop_negativos_original
+    else:
+        factor_fp = 1.0
+        
+    if prop_original > 0:
+        factor_fn = prop_positivos / prop_original
+    else:
+        factor_fn = 1.0
+    
+    # PASO 1: Evaluar todos los thresholds sin métricas por fold (más rápido)
+    resultados = []
+    for threshold in thresholds:
+        y_pred = (y_proba_cv >= threshold).astype(int)
+        cm = confusion_matrix(y, y_pred)
+        
+        if cm.size == 4:
+            tn, fp, fn, tp = cm.ravel()
+        else:
+            if len(np.unique(y_pred)) == 1:
+                if y_pred[0] == 0:
+                    tn, fp, fn, tp = len(y) - y.sum(), 0, y.sum(), 0
+                else:
+                    tn, fp, fn, tp = 0, (y == 0).sum(), 0, y.sum()
+            else:
+                tn, fp, fn, tp = 0, 0, 0, 0
+        
+        # Ajustar FP y FN según la proporción
+        fp_ajustado = fp * factor_fp
+        fn_ajustado = fn * factor_fn
+        
+        # Calcular costo
+        costo_total = fp_ajustado * costo_fp + fn_ajustado * costo_fn
+        costo_por_1000 = (costo_total / len(y)) * 1000
+        
+        resultados.append({
+            'threshold': threshold,
+            'costo_por_1000': costo_por_1000,
+            'fp': fp,
+            'fn': fn,
+            'fp_ajustado': fp_ajustado,
+            'fn_ajustado': fn_ajustado,
+            'costo_mean_folds': np.nan,  # Se calculará después para top-5
+            'costo_std_folds': np.nan,
+            'cv_coeficiente': np.nan
+        })
+    
+    df_resultados = pd.DataFrame(resultados)
+    
+    # PASO 2: Identificar top-5 thresholds (menores costos)
+    top_n = min(5, len(df_resultados))
+    top_thresholds = df_resultados.nsmallest(top_n, 'costo_por_1000')['threshold'].values
+    
+    # PASO 3: Evaluar métricas por fold solo para los top-5 thresholds
+    for threshold in top_thresholds:
+        # Calcular métricas por fold para evaluar robustez
+        costos_por_fold = []
+        for train_idx, test_idx in cv.split(X, y):
+            y_fold_true = y[test_idx]
+            # Usar probabilidades del diccionario que garantiza correspondencia exacta
+            y_fold_proba = np.array([y_proba_por_fold[idx] for idx in test_idx])
+            y_fold_pred = (y_fold_proba >= threshold).astype(int)
+            
+            cm_fold = confusion_matrix(y_fold_true, y_fold_pred)
+            if cm_fold.size == 4:
+                tn_fold, fp_fold, fn_fold, tp_fold = cm_fold.ravel()
+            else:
+                if len(np.unique(y_fold_pred)) == 1:
+                    if y_fold_pred[0] == 0:
+                        tn_fold, fp_fold, fn_fold, tp_fold = len(y_fold_true) - y_fold_true.sum(), 0, y_fold_true.sum(), 0
+                    else:
+                        tn_fold, fp_fold, fn_fold, tp_fold = 0, (y_fold_true == 0).sum(), 0, y_fold_true.sum()
+                else:
+                    tn_fold, fp_fold, fn_fold, tp_fold = 0, 0, 0, 0
+            
+            fp_fold_ajustado = fp_fold * factor_fp
+            fn_fold_ajustado = fn_fold * factor_fn
+            costo_fold_total = fp_fold_ajustado * costo_fp + fn_fold_ajustado * costo_fn
+            costo_fold_por_1000 = (costo_fold_total / len(y_fold_true)) * 1000
+            costos_por_fold.append(costo_fold_por_1000)
+        
+        # Calcular coeficiente de variación (robustez)
+        costos_por_fold = np.array(costos_por_fold)
+        mean_costo = np.mean(costos_por_fold)
+        std_costo = np.std(costos_por_fold)
+        cv_coeficiente = std_costo / mean_costo if mean_costo > 0 else np.inf
+        
+        # Actualizar resultados para este threshold
+        idx = df_resultados[df_resultados['threshold'] == threshold].index[0]
+        df_resultados.loc[idx, 'costo_mean_folds'] = mean_costo
+        df_resultados.loc[idx, 'costo_std_folds'] = std_costo
+        df_resultados.loc[idx, 'cv_coeficiente'] = cv_coeficiente
+    
+    # Encontrar threshold óptimo (mínimo costo)
+    idx_optimo = df_resultados['costo_por_1000'].idxmin()
+    threshold_optimo = df_resultados.loc[idx_optimo, 'threshold']
+    costo_optimo = df_resultados.loc[idx_optimo, 'costo_por_1000']
+    
+    # Si el threshold óptimo no está en el top-5, calcular sus métricas por fold
+    if threshold_optimo not in top_thresholds:
+        costos_por_fold = []
+        for train_idx, test_idx in cv.split(X, y):
+            y_fold_true = y[test_idx]
+            y_fold_proba = np.array([y_proba_por_fold[idx] for idx in test_idx])
+            y_fold_pred = (y_fold_proba >= threshold_optimo).astype(int)
+            
+            cm_fold = confusion_matrix(y_fold_true, y_fold_pred)
+            if cm_fold.size == 4:
+                tn_fold, fp_fold, fn_fold, tp_fold = cm_fold.ravel()
+            else:
+                if len(np.unique(y_fold_pred)) == 1:
+                    if y_fold_pred[0] == 0:
+                        tn_fold, fp_fold, fn_fold, tp_fold = len(y_fold_true) - y_fold_true.sum(), 0, y_fold_true.sum(), 0
+                    else:
+                        tn_fold, fp_fold, fn_fold, tp_fold = 0, (y_fold_true == 0).sum(), 0, y_fold_true.sum()
+                else:
+                    tn_fold, fp_fold, fn_fold, tp_fold = 0, 0, 0, 0
+            
+            fp_fold_ajustado = fp_fold * factor_fp
+            fn_fold_ajustado = fn_fold * factor_fn
+            costo_fold_total = fp_fold_ajustado * costo_fp + fn_fold_ajustado * costo_fn
+            costo_fold_por_1000 = (costo_fold_total / len(y_fold_true)) * 1000
+            costos_por_fold.append(costo_fold_por_1000)
+        
+        costos_por_fold = np.array(costos_por_fold)
+        mean_costo = np.mean(costos_por_fold)
+        std_costo = np.std(costos_por_fold)
+        cv_coeficiente = std_costo / mean_costo if mean_costo > 0 else np.inf
+        
+        df_resultados.loc[idx_optimo, 'costo_mean_folds'] = mean_costo
+        df_resultados.loc[idx_optimo, 'costo_std_folds'] = std_costo
+        df_resultados.loc[idx_optimo, 'cv_coeficiente'] = cv_coeficiente
+    
+    cv_optimo = df_resultados.loc[idx_optimo, 'cv_coeficiente']
+    
+    # Evaluar robustez (manejar NaN si no se calculó)
+    if pd.isna(cv_optimo) or cv_optimo == np.inf:
+        robustez = "No calculado"
+        emoji = "❓"
+    elif cv_optimo < 0.1:
+        robustez = "Muy robusto"
+        emoji = "✅"
+    elif cv_optimo < 0.2:
+        robustez = "Robusto"
+        emoji = "✓"
+    else:
+        robustez = "Poco robusto"
+        emoji = "⚠️"
+    
+    print(f"\n🎯 OPTIMIZACIÓN DE THRESHOLD POR COSTO (CV):")
+    print(f"   Threshold óptimo: {threshold_optimo:.4f}")
+    print(f"   Costo mínimo por 1000 registros: {costo_optimo:.2f}")
+    print(f"   FP ajustado: {df_resultados.loc[idx_optimo, 'fp_ajustado']:.0f}")
+    print(f"   FN ajustado: {df_resultados.loc[idx_optimo, 'fn_ajustado']:.0f}")
+    print(f"\n📊 EVALUACIÓN DE ROBUSTEZ:")
+    print(f"   Coeficiente de variación (CV): {cv_optimo:.4f}")
+    print(f"   Robustez: {robustez} {emoji}")
+    print(f"   Costo medio por fold: {df_resultados.loc[idx_optimo, 'costo_mean_folds']:.2f} ± {df_resultados.loc[idx_optimo, 'costo_std_folds']:.2f}")
+    
+    return {
+        'threshold_optimo': threshold_optimo,
+        'costo_minimo': costo_optimo,
+        'cv_coeficiente': cv_optimo,
+        'robustez': robustez,
+        'resultados': df_resultados
+    }
+
+
+def optimizar_threshold_f1_cv(model, X, y, cv, thresholds=None, model_name="Modelo",
+                              y_proba_cv=None):
+    """
+    Optimiza el threshold basándose en F1 Score usando Cross-Validation.
+    
+    Parameters:
+    -----------
+    model : sklearn estimator
+        Modelo que implementa predict_proba
+    X : array-like
+        Features para entrenamiento
+    y : array-like
+        Target (valores reales)
+    cv : cross-validation splitter
+        Estrategia de cross-validation (ej: StratifiedKFold)
+    thresholds : array-like, optional
+        Lista de thresholds a evaluar. Si es None, usa np.linspace(0.01, 0.99, 100)
+    model_name : str, default="Modelo"
+        Nombre del modelo
+    y_proba_cv : array-like, optional
+        Probabilidades de CV ya calculadas. Si es None, se calculan manualmente por fold.
+        Útil para evitar recalcular los folds cuando se optimizan múltiples métricas.
+    
+    Returns:
+    --------
+    dict : Diccionario con threshold óptimo, F1 máximo y resultados por fold
+    """
+    # Convertir a arrays numpy
+    X = np.array(X)
+    y = np.array(y)
+    
+    # Calcular probabilidades por fold manualmente para garantizar correspondencia exacta
+    # Esto asegura que las métricas por fold correspondan a los folds reales del CV
+    # Siempre calculamos y_proba_por_fold porque lo necesitamos para las métricas por fold
+    y_proba_por_fold = {}  # Diccionario: índice -> probabilidad
+    for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X, y)):
+        # Entrenar modelo en el fold de entrenamiento
+        model_fold = type(model)(**model.get_params())
+        model_fold.fit(X[train_idx], y[train_idx])
+        # Predecir probabilidades en el fold de test
+        y_proba_fold = model_fold.predict_proba(X[test_idx])[:, 1]
+        # Almacenar probabilidades con sus índices originales
+        for idx, proba in zip(test_idx, y_proba_fold):
+            y_proba_por_fold[idx] = proba
+    
+    # Construir y_proba_cv desde y_proba_por_fold (evita usar cross_val_predict)
+    if y_proba_cv is None:
+        # Construir array en el orden correcto desde el diccionario
+        y_proba_cv = np.array([y_proba_por_fold[i] for i in range(len(y))])
+    else:
+        # Si se proporciona y_proba_cv, lo usamos directamente
+        # (y_proba_por_fold ya se calculó arriba para las métricas por fold)
+        y_proba_cv = np.array(y_proba_cv)
+    
+    # Generar thresholds adaptativos si no se proporcionan
+    if thresholds is None:
+        thresholds = generar_thresholds(y_proba_cv, max_thresholds=200)
+    
+    # PASO 1: Evaluar todos los thresholds sin métricas por fold (más rápido)
+    resultados = []
+    for threshold in thresholds:
+        y_pred = (y_proba_cv >= threshold).astype(int)
+        
+        f1 = f1_score(y, y_pred, zero_division=0)
+        precision = precision_score(y, y_pred, zero_division=0)
+        recall = recall_score(y, y_pred, zero_division=0)
+        
+        resultados.append({
+            'threshold': threshold,
+            'f1_score': f1,
+            'precision': precision,
+            'recall': recall,
+            'f1_mean_folds': np.nan,  # Se calculará después para top-5
+            'f1_std_folds': np.nan,
+            'cv_coeficiente': np.nan
+        })
+    
+    df_resultados = pd.DataFrame(resultados)
+    
+    # PASO 2: Identificar top-5 thresholds (mayores F1 scores)
+    top_n = min(5, len(df_resultados))
+    top_thresholds = df_resultados.nlargest(top_n, 'f1_score')['threshold'].values
+    
+    # PASO 3: Evaluar métricas por fold solo para los top-5 thresholds
+    for threshold in top_thresholds:
+        # Calcular métricas por fold para evaluar robustez
+        f1_por_fold = []
+        precision_por_fold = []
+        recall_por_fold = []
+        
+        for train_idx, test_idx in cv.split(X, y):
+            y_fold_true = y[test_idx]
+            # Usar probabilidades del diccionario que garantiza correspondencia exacta
+            y_fold_proba = np.array([y_proba_por_fold[idx] for idx in test_idx])
+            y_fold_pred = (y_fold_proba >= threshold).astype(int)
+            
+            f1_fold = f1_score(y_fold_true, y_fold_pred, zero_division=0)
+            precision_fold = precision_score(y_fold_true, y_fold_pred, zero_division=0)
+            recall_fold = recall_score(y_fold_true, y_fold_pred, zero_division=0)
+            
+            f1_por_fold.append(f1_fold)
+            precision_por_fold.append(precision_fold)
+            recall_por_fold.append(recall_fold)
+        
+        # Calcular coeficiente de variación (robustez) para F1
+        f1_por_fold = np.array(f1_por_fold)
+        mean_f1 = np.mean(f1_por_fold)
+        std_f1 = np.std(f1_por_fold)
+        cv_coeficiente_f1 = std_f1 / mean_f1 if mean_f1 > 0 else np.inf
+        
+        # Actualizar resultados para este threshold
+        idx = df_resultados[df_resultados['threshold'] == threshold].index[0]
+        df_resultados.loc[idx, 'f1_mean_folds'] = mean_f1
+        df_resultados.loc[idx, 'f1_std_folds'] = std_f1
+        df_resultados.loc[idx, 'cv_coeficiente'] = cv_coeficiente_f1
+    
+    # Encontrar threshold óptimo (máximo F1)
+    idx_optimo = df_resultados['f1_score'].idxmax()
+    threshold_optimo = df_resultados.loc[idx_optimo, 'threshold']
+    f1_optimo = df_resultados.loc[idx_optimo, 'f1_score']
+    
+    # Si el threshold óptimo no está en el top-5, calcular sus métricas por fold
+    if threshold_optimo not in top_thresholds:
+        f1_por_fold = []
+        for train_idx, test_idx in cv.split(X, y):
+            y_fold_true = y[test_idx]
+            y_fold_proba = np.array([y_proba_por_fold[idx] for idx in test_idx])
+            y_fold_pred = (y_fold_proba >= threshold_optimo).astype(int)
+            
+            f1_fold = f1_score(y_fold_true, y_fold_pred, zero_division=0)
+            f1_por_fold.append(f1_fold)
+        
+        f1_por_fold = np.array(f1_por_fold)
+        mean_f1 = np.mean(f1_por_fold)
+        std_f1 = np.std(f1_por_fold)
+        cv_coeficiente_f1 = std_f1 / mean_f1 if mean_f1 > 0 else np.inf
+        
+        df_resultados.loc[idx_optimo, 'f1_mean_folds'] = mean_f1
+        df_resultados.loc[idx_optimo, 'f1_std_folds'] = std_f1
+        df_resultados.loc[idx_optimo, 'cv_coeficiente'] = cv_coeficiente_f1
+    
+    cv_optimo = df_resultados.loc[idx_optimo, 'cv_coeficiente']
+    
+    # Evaluar robustez (manejar NaN si no se calculó)
+    if pd.isna(cv_optimo) or cv_optimo == np.inf:
+        robustez = "No calculado"
+        emoji = "❓"
+    elif cv_optimo < 0.1:
+        robustez = "Muy robusto"
+        emoji = "✅"
+    elif cv_optimo < 0.2:
+        robustez = "Robusto"
+        emoji = "✓"
+    else:
+        robustez = "Poco robusto"
+        emoji = "⚠️"
+    
+    print(f"\n🎯 OPTIMIZACIÓN DE THRESHOLD POR F1 SCORE (CV):")
+    print(f"   Threshold óptimo: {threshold_optimo:.4f}")
+    print(f"   F1 Score máximo: {f1_optimo:.4f}")
+    print(f"   Precision: {df_resultados.loc[idx_optimo, 'precision']:.4f}")
+    print(f"   Recall: {df_resultados.loc[idx_optimo, 'recall']:.4f}")
+    print(f"\n📊 EVALUACIÓN DE ROBUSTEZ:")
+    print(f"   Coeficiente de variación (CV): {cv_optimo:.4f}")
+    print(f"   Robustez: {robustez} {emoji}")
+    print(f"   F1 Score medio por fold: {df_resultados.loc[idx_optimo, 'f1_mean_folds']:.4f} ± {df_resultados.loc[idx_optimo, 'f1_std_folds']:.4f}")
+    
+    return {
+        'threshold_optimo': threshold_optimo,
+        'f1_maximo': f1_optimo,
+        'cv_coeficiente': cv_optimo,
+        'robustez': robustez,
+        'resultados': df_resultados
+    }
 
 
 def plot_costo_interactivo(y_true, y_proba, costo_fp_inicial=5.0, costo_fn_inicial=100.0, 
