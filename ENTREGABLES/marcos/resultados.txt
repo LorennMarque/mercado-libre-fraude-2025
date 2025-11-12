@@ -9,9 +9,15 @@ Metodo de armado de random forest:
 # 4. Evaluar modelo con ambos thresholds
     - Informar f1 y costo
 
+Cantidad de CVs = 5
+Usar f1 para comparar "fuerza de prediccion"
+Usar costo para comparar valor practico
+
 ######################################################
                         Forest1
 ######################################################
+
+Tiempo de optimizacion: aprox 15m
 
 features:
 - Pais encoding
@@ -27,11 +33,16 @@ Threshold optimo: 0.5444
    Robustez: Muy robusto ✅
    Costo medio por fold: 1149.22 ± 30.78
 
-F1 Score: 0.2810
-Cohen's Kappa: 0.2435
+Precision:          0.1702
+Recall:             0.8040
+F1 Score:           0.2810
+Cohen's Kappa:      0.2435
 Matthews Corr Coef: 0.3340
+Tasa positivos:     0.1417
 
-### Costo por 1000 registros: 1175.80 ###
+Costo por 1000 registros: 1175.80
+
+############################
 
 Optimizado con f1:
 
@@ -42,8 +53,11 @@ Threshold óptimo: 0.8139
    Robustez: Muy robusto ✅
    F1 Score medio por fold: 0.4401 ± 0.0136
 
-F1 Score:            0.4457
-Cohen's Kappa:       0.4304
-Matthews Corr Coef:  0.4326
+Precision:          0.4951
+Recall:             0.4053
+F1 Score:           0.4457
+Cohen's Kappa:      0.4304
+Matthews Corr Coef: 0.4326
+Tasa positivos:     0.0246
 
 Costo por 1000 registros: 1846.00

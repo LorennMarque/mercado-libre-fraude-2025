@@ -164,6 +164,9 @@ def evaluate_model(y_true, y_pred=None, y_proba=None, threshold=None, model_name
         costo_total = fp_ajustado * costo_fp + fn_ajustado * costo_fn
         costo_por_1000 = (costo_total / len(y_true)) * 1000
     
+    # Calcular tasa de positivos (porcentaje de predicciones positivas del modelo)
+    tasa_positivos = (y_pred.sum() / len(y_pred)) if len(y_pred) > 0 else 0.0
+    
     # Crear diccionario de métricas
     metrics = {
         'accuracy': accuracy,
@@ -177,6 +180,7 @@ def evaluate_model(y_true, y_pred=None, y_proba=None, threshold=None, model_name
         'specificity': specificity,
         'npv': npv,
         'false_positive_rate': fpr,
+        'tasa_positivos': tasa_positivos,
         'true_positives': int(tp),
         'true_negatives': int(tn),
         'false_positives': int(fp),
@@ -215,6 +219,15 @@ def evaluate_model(y_true, y_pred=None, y_proba=None, threshold=None, model_name
     print(f"   Matthews Corr Coef:  {mcc:.4f}")
     print(f"   NPV:                 {npv:.4f}")
     print(f"   False Positive Rate: {fpr:.4f}")
+    
+    # Mostrar resumen de métricas clave en formato compacto
+    print(f"\n📊 RESUMEN DE MÉTRICAS CLAVE:")
+    print(f"   Precision:          {precision:.4f}")
+    print(f"   Recall:             {recall:.4f}")
+    print(f"   F1 Score:           {f1:.4f}")
+    print(f"   Cohen's Kappa:      {kappa:.4f}")
+    print(f"   Matthews Corr Coef: {mcc:.4f}")
+    print(f"   Tasa positivos:     {tasa_positivos:.4f}")
     
     # Mostrar costo si se calculó
     if costo_por_1000 is not None:
