@@ -22,6 +22,7 @@ from sklearn.metrics import (
     matthews_corrcoef
 )
 from sklearn.calibration import calibration_curve
+from sklearn.base import clone
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 try:
@@ -521,7 +522,7 @@ def optimizar_threshold_costo_cv(model, X, y, cv, costo_fp=5.0, costo_fn=100.0,
     y_proba_por_fold = {}  # Diccionario: índice -> probabilidad
     for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X, y)):
         # Entrenar modelo en el fold de entrenamiento
-        model_fold = type(model)(**model.get_params())
+        model_fold = clone(model)
         model_fold.fit(X[train_idx], y[train_idx])
         # Predecir probabilidades en el fold de test
         y_proba_fold = model_fold.predict_proba(X[test_idx])[:, 1]
@@ -753,7 +754,7 @@ def optimizar_threshold_f1_cv(model, X, y, cv, thresholds=None, model_name="Mode
     y_proba_por_fold = {}  # Diccionario: índice -> probabilidad
     for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X, y)):
         # Entrenar modelo en el fold de entrenamiento
-        model_fold = type(model)(**model.get_params())
+        model_fold = clone(model)
         model_fold.fit(X[train_idx], y[train_idx])
         # Predecir probabilidades en el fold de test
         y_proba_fold = model_fold.predict_proba(X[test_idx])[:, 1]
@@ -1214,7 +1215,10 @@ def seleccionar_variables(
     fecha_encoding=0,
     fecha_categoricas=False,
     usar_imputadas=False,
-    remove_r=False
+    remove_r=False,
+    br_ar_encoding=False,
+    remove_score=False,
+    remove_d=False
 ):
     """
     Selecciona variables del dataset procesado basándose en los parámetros especificados.
@@ -1260,6 +1264,16 @@ def seleccionar_variables(
     remove_r : bool, default=False
         Si True, excluye la columna 'r' de las variables seleccionadas. Si False, incluye 'r'.
     
+    br_ar_encoding : bool, default=False
+        Si True, incluye las variables binarias is_brasil e is_arg (indicadores de país BR y AR).
+        Si False, no incluye estas variables.
+    
+    remove_score : bool, default=False
+        Si True, excluye la columna 'score' de las variables seleccionadas. Si False, incluye 'score'.
+    
+    remove_d : bool, default=False
+        Si True, excluye la columna 'd' de las variables seleccionadas. Si False, incluye 'd'.
+    
     Returns:
     --------
     pandas.DataFrame
@@ -1276,6 +1290,14 @@ def seleccionar_variables(
     # Remover 'r' si remove_r=True
     if remove_r and 'r' in columnas_seleccionadas:
         columnas_seleccionadas.remove('r')
+    
+    # Remover 'score' si remove_score=True
+    if remove_score and 'score' in columnas_seleccionadas:
+        columnas_seleccionadas.remove('score')
+    
+    # Remover 'd' si remove_d=True
+    if remove_d and 'd' in columnas_seleccionadas:
+        columnas_seleccionadas.remove('d')
     
     # Agregar row_id si existe (es una columna de identificación)
     if 'row_id' in df.columns:
@@ -1313,6 +1335,13 @@ def seleccionar_variables(
         # Si pais_encoding=False, mantener la columna original 'pais'
         if 'pais' in df.columns:
             columnas_seleccionadas.append('pais')
+    
+    # 4.5. Agregar variables is_brasil e is_arg si br_ar_encoding=True
+    if br_ar_encoding:
+        br_ar_cols = ['is_brasil', 'is_arg']
+        for col in br_ar_cols:
+            if col in df.columns:
+                columnas_seleccionadas.append(col)
     
     # 5. Manejar producto_nombre: si producto_nombre_encoding=True, usar features y excluir original; si False, mantener original
     if producto_nombre_encoding:

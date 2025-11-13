@@ -14,50 +14,613 @@ Usar f1 para comparar "fuerza de prediccion"
 Usar costo para comparar valor practico
 
 ######################################################
-                        Forest1
+                    Forest0 (baseline)
 ######################################################
 
-Tiempo de optimizacion: aprox 15m
+Tiempo de optimizacion: 5m
 
 features:
-- Pais encoding
-- Cat encoding
-- Nombre eliminado
+- Ninguno (aparte de la normalizacion y pasaje de Y-N a 1-0)
+- Variables no numericas eliminadas
+
+#######################
 
 Optimizado con costo:
 
-Threshold optimo: 0.5444
+Threshold óptimo: 0.5804
 
 📊 EVALUACIÓN DE ROBUSTEZ:
-   Coeficiente de variación (CV): 0.0268
+   Coeficiente de variación (CV): 0.0288
    Robustez: Muy robusto ✅
-   Costo medio por fold: 1149.22 ± 30.78
+   Costo medio por fold: 1611.75 ± 46.38
 
-Precision:          0.1702
-Recall:             0.8040
-F1 Score:           0.2810
-Cohen's Kappa:      0.2435
-Matthews Corr Coef: 0.3340
-Tasa positivos:     0.1417
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.1380
+   Recall:             0.7007
+   F1 Score:           0.2306
+   Cohen's Kappa:      0.1900
+   Matthews Corr Coef: 0.2684
+   Tasa positivos:     0.1523
 
-Costo por 1000 registros: 1175.80
+💰 COSTO:
+   Costo por 1000 registros: 1554.30
+   
+##########################
+
+Optimizado con f1:
+
+Threshold óptimo: 0.7722
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0504
+   Robustez: Muy robusto ✅
+   F1 Score medio por fold: 0.3226 ± 0.0163
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.2940
+   Recall:             0.3987
+   F1 Score:           0.3384
+   Cohen's Kappa:      0.3148
+   Matthews Corr Coef: 0.3187
+   Tasa positivos:     0.0407
+
+💰 COSTO:
+   Costo por 1000 registros: 1947.60
+
+
+######################################################
+                        Forest1
+######################################################
+
+Tiempo de optimizacion: 5m
+
+Features:
+- Pais encoding
+- Categoria encoding
+- Nombre encoding
+- Dummies de o
+- Encoding nunerico normal de fechas
+
+##########################
+
+Optimizado con costo:
+
+Threshold óptimo: 0.5219
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0361
+   Robustez: Muy robusto ✅
+   Costo medio por fold: 861.25 ± 31.05
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.2228
+   Recall:             0.8573
+   F1 Score:           0.3537
+   Cohen's Kappa:      0.3214
+   Matthews Corr Coef: 0.4083
+   Tasa positivos:     0.1154
+
+💰 COSTO:
+   Costo por 1000 registros: 876.50
 
 ############################
 
 Optimizado con f1:
 
-Threshold óptimo: 0.8139
+Threshold óptimo: 0.7915
 
 📊 EVALUACIÓN DE ROBUSTEZ:
-   Coeficiente de variación (CV): 0.0308
+   Coeficiente de variación (CV): 0.0203
    Robustez: Muy robusto ✅
-   F1 Score medio por fold: 0.4401 ± 0.0136
+   F1 Score medio por fold: 0.5132 ± 0.0104
 
-Precision:          0.4951
-Recall:             0.4053
-F1 Score:           0.4457
-Cohen's Kappa:      0.4304
-Matthews Corr Coef: 0.4326
-Tasa positivos:     0.0246
 
-Costo por 1000 registros: 1846.00
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.4747
+   Recall:             0.5687
+   F1 Score:           0.5174
+   Cohen's Kappa:      0.5011
+   Matthews Corr Coef: 0.5033
+   Tasa positivos:     0.0359
+
+💰 COSTO:
+   Costo por 1000 registros: 1388.40
+
+######################################################
+                        Forest2
+######################################################
+
+Tiempo de ejecucion: 5m
+
+Features:
+- Pais encoding
+- Categoria encoding
+- Nombre encoding
+- Dummies de o
+- Encoding nunerico normal de fechas
+- Eliminar r
+- Eliminar d
+(Igual que forest 1 pero eliminando variables potencialmente redundantes (r y d))
+
+#################################
+
+Optimizado con costo:
+
+Threshold óptimo: 0.5174
+
+ EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0396
+   Robustez: Muy robusto ✅
+   Costo medio por fold: 867.90 ± 34.41
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.2215
+   Recall:             0.8553
+   F1 Score:           0.3519
+   Cohen's Kappa:      0.3195
+   Matthews Corr Coef: 0.4064
+   Tasa positivos:     0.1158
+
+💰 COSTO:
+   Costo por 1000 registros: 884.90
+
+#################################
+
+Optimizado con f1:
+
+Threshold óptimo: 0.7830
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0108
+   Robustez: Muy robusto ✅
+   F1 Score medio por fold: 0.5120 ± 0.0055
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.4510
+   Recall:             0.5980
+   F1 Score:           0.5142
+   Cohen's Kappa:      0.4970
+   Matthews Corr Coef: 0.5023
+   Tasa positivos:     0.0398
+
+💰 COSTO:
+   Costo por 1000 registros: 1315.20
+
+######################################################
+                        Forest3
+######################################################
+
+Tiempo de ejecucion: 5m
+
+Features:
+- Pais encoding
+- Categoria encoding
+- Nombre encoding
+- Dummies de o
+- Encoding numerico CICLICO de fechas
+- Eliminar r
+- Eliminar d
+(igual que forest2 pero con la diferencia en fechas)
+
+############################
+
+Optimizacion con costo:
+
+Threshold óptimo: 0.5075
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0448
+   Robustez: Muy robusto ✅
+   Costo medio por fold: 877.60 ± 39.34
+
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.2130
+   Recall:             0.8673
+   F1 Score:           0.3420
+   Cohen's Kappa:      0.3087
+   Matthews Corr Coef: 0.4002
+   Tasa positivos:     0.1222
+
+💰 COSTO:
+   Costo por 1000 registros: 878.70
+
+############################
+
+Optimizacion con f1:
+
+Threshold óptimo: 0.8061
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0253
+   Robustez: Muy robusto ✅
+   F1 Score medio por fold: 0.5126 ± 0.0130
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.5040
+   Recall:             0.5460
+   F1 Score:           0.5242
+   Cohen's Kappa:      0.5088
+   Matthews Corr Coef: 0.5093
+   Tasa positivos:     0.0325
+
+💰 COSTO:
+   Costo por 1000 registros: 1442.60
+
+######################################################
+                        Forest4
+######################################################
+
+Tiempo de ejecucion: 5m
+
+Features:
+- Pais encoding
+- Categoria encoding
+- Nombre encoding
+- Dummies de o
+- AMBOS encoding numericos de fechas
+- Eliminar r
+- Eliminar d
+(igual que forest2 y 3 pero con la diferencia en fechas)
+
+#####################################
+
+Optimizacion con costo:
+
+Threshold óptimo: 0.5319
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0374
+   Robustez: Muy robusto ✅
+   Costo medio por fold: 882.08 ± 33.03
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.2351
+   Recall:             0.8460
+   F1 Score:           0.3679
+   Cohen's Kappa:      0.3368
+   Matthews Corr Coef: 0.4182
+   Tasa positivos:     0.1080
+
+💰 COSTO:
+   Costo por 1000 registros: 874.90
+
+#####################################
+
+Optimizacion con f1:
+
+Threshold óptimo: 0.7716
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0132
+   Robustez: Muy robusto ✅
+   F1 Score medio por fold: 0.5131 ± 0.0068
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.4635
+   Recall:             0.5793
+   F1 Score:           0.5150
+   Cohen's Kappa:      0.4982
+   Matthews Corr Coef: 0.5016
+   Tasa positivos:     0.0375
+
+💰 COSTO:
+   Costo por 1000 registros: 1362.60
+
+######################################################
+                        Forest5
+######################################################
+
+Tiempo de ejecucion: 5
+
+Features:
+- Pais encoding
+- Categoria encoding
+- Nombre encoding
+- Dummies de o
+- Ambos encoding numericos de fechas
+- Encoding categorico de fechas
+- Eliminar r
+- Eliminar d
+
+#####################################
+
+Optimizacion con costo:
+
+Threshold óptimo: 0.5069
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0320
+   Robustez: Muy robusto ✅
+   Costo medio por fold: 877.35 ± 28.07
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.2138
+   Recall:             0.8733
+   F1 Score:           0.3435
+   Cohen's Kappa:      0.3103
+   Matthews Corr Coef: 0.4027
+   Tasa positivos:     0.1225
+
+💰 COSTO:
+   Costo por 1000 registros: 861.70
+
+#####################################
+
+Optimizacion con f1:
+
+Threshold óptimo: 0.7962
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0233
+   Robustez: Muy robusto ✅
+   F1 Score medio por fold: 0.5148 ± 0.0120
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.4768
+   Recall:             0.5480
+   F1 Score:           0.5099
+   Cohen's Kappa:      0.4937
+   Matthews Corr Coef: 0.4950
+   Tasa positivos:     0.0345
+
+💰 COSTO:
+   Costo por 1000 registros: 1446.20
+
+######################################################
+                        Forest6
+######################################################
+
+Tiempo de ejecucion: 5m
+
+Features:
+- Pais encoding
+- Categoria encoding
+- Nombre encoding
+- Dummies de o
+- Ambos encoding numericos de fechas
+- Imputacion de NAs con MICE
+- Eliminar r
+- Eliminar d
+
+#####################################
+
+Optimizacion con costo:
+
+Threshold óptimo: 0.4970
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0419
+   Robustez: Muy robusto ✅
+   Costo medio por fold: 888.17 ± 37.21
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.2060
+   Recall:             0.8733
+   F1 Score:           0.3334
+   Cohen's Kappa:      0.2994
+   Matthews Corr Coef: 0.3939
+   Tasa positivos:     0.1272
+
+💰 COSTO:
+   Costo por 1000 registros: 884.80
+
+#####################################
+
+Optimizacion con f1:
+
+Threshold óptimo: 0.7709
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0203
+   Robustez: Muy robusto ✅
+   F1 Score medio por fold: 0.5117 ± 0.0104
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.4642
+   Recall:             0.5800
+   F1 Score:           0.5157
+   Cohen's Kappa:      0.4990
+   Matthews Corr Coef: 0.5023
+   Tasa positivos:     0.0375
+
+💰 COSTO:
+   Costo por 1000 registros: 1360.40
+
+######################################################
+                        Forest7
+######################################################
+
+Tiempo de ejecucion: 6m
+
+Features:
+- Pais encoding
+- Categoria encoding
+- Nombre encoding
+- Dummies de o
+- Ambos encoding numericos de fechas
+- is_brasil e is_arg
+- Eliminar r
+- Eliminar d
+
+#####################################
+
+Optimizacion con costo:
+
+Threshold óptimo: 0.5172
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0414
+   Robustez: Muy robusto ✅
+   Costo medio por fold: 875.05 ± 36.27
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.2182
+   Recall:             0.8600
+   F1 Score:           0.3480
+   Cohen's Kappa:      0.3153
+   Matthews Corr Coef: 0.4040
+   Tasa positivos:     0.1183
+
+💰 COSTO:
+   Costo por 1000 registros: 882.30
+
+####################################
+
+Optimizacion con f1:
+
+Threshold óptimo: 0.7963
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0237
+   Robustez: Muy robusto ✅
+   F1 Score medio por fold: 0.5136 ± 0.0122
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.4875
+   Recall:             0.5580
+   F1 Score:           0.5204
+   Cohen's Kappa:      0.5045
+   Matthews Corr Coef: 0.5057
+   Tasa positivos:     0.0343
+
+💰 COSTO:
+   Costo por 1000 registros: 1414.00
+
+######################################################
+                    Forest6 SMOTE
+######################################################
+
+Tiempo de ejecucion: 12m
+
+Features:
+- Pais encoding
+- Categoria encoding
+- Nombre encoding
+- Dummies de o
+- Ambos encoding numericos de fechas
+- Imputacion de NAs con MICE
+- Eliminar r
+- Eliminar d
+
+SMOTE APLICADO
+
+#####################################
+
+Optimizacion con costo:
+
+Threshold óptimo: 0.4552
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0299
+   Robustez: Muy robusto ✅
+   Costo medio por fold: 929.48 ± 27.75
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.2105
+   Recall:             0.8427
+   F1 Score:           0.3369
+   Cohen's Kappa:      0.3034
+   Matthews Corr Coef: 0.3909
+   Tasa positivos:     0.1201
+
+💰 COSTO:
+   Costo por 1000 registros: 946.00
+
+#####################################
+
+Optimizacion por f1:
+
+Threshold óptimo: 0.7082
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0251
+   Robustez: Muy robusto ✅
+   F1 Score medio por fold: 0.4805 ± 0.0120
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.4415
+   Recall:             0.5460
+   F1 Score:           0.4882
+   Cohen's Kappa:      0.4707
+   Matthews Corr Coef: 0.4735
+   Tasa positivos:     0.0371
+
+💰 COSTO:
+   Costo por 1000 registros: 1465.60
+
+######################################################
+                        Forest8
+######################################################
+
+Tiempo de ejecucion: 1m
+
+Features:
+- Pais encoding
+- Categoria encoding
+- Nombre encoding
+- Dummies de o
+- AMBOS encoding numericos de fechas
+- Eliminar r
+- Eliminar d
+(Igual que forest4)
+
+BalancedRandomForestClassifier en vez de RandomForestClassifier
+
+#####################################
+
+Optimizacion con costo: 
+
+Threshold óptimo: 0.5180
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0286
+   Robustez: Muy robusto ✅
+   Costo medio por fold: 873.62 ± 25.02
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.2124
+   Recall:             0.8660
+   F1 Score:           0.3411
+   Cohen's Kappa:      0.3078
+   Matthews Corr Coef: 0.3992
+   Tasa positivos:     0.1223
+
+💰 COSTO:
+   Costo por 1000 registros: 883.70
+
+######################################
+
+Optimizacion de f1: 
+
+Threshold óptimo: 0.7973
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0185
+   Robustez: Muy robusto ✅
+   F1 Score medio por fold: 0.5183 ± 0.0096
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.5049
+   Recall:             0.5500
+   F1 Score:           0.5265
+   Cohen's Kappa:      0.5112
+   Matthews Corr Coef: 0.5117
+   Tasa positivos:     0.0327
+
+💰 COSTO:
+   Costo por 1000 registros: 1430.90
+
+##########################################
+                CONCLUSION
+##########################################
+
+Luego de aplicar las features que sabía que iban a aportar mucho valores,
+apenas se pudo bajar el costo. SMOTE e imputaciones no funcionaron, y muchas
+features resultaron inutiles.
+
+Los dos mejores modelos terminaron siendo forest4 y forest8, Con la mayor diferencia en metricas
+siendo el tiempo de procesamiento (1m vs 5m). Aparte BRF esta diseñado para casos como este.
+
+Por esto forest8 fue seleccionado como el modelo final, al cual se les van a optimizar los hiperparametros
+con Optuna. El menor tiempo de procesamiento va a ser muy importante en un proceso tan costoso.

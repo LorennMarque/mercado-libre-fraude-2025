@@ -158,6 +158,11 @@ def aplicar_feature_engineering(df):
         df['dia_mes_sin'] = np.sin(2 * np.pi * df['dia_mes']/31).astype(float)
         df['dia_mes_cos'] = np.cos(2 * np.pi * df['dia_mes']/31).astype(float)
     
+    # Features de país: is_brasil e is_arg
+    if 'pais' in df.columns:
+        df['is_brasil'] = (df['pais'] == 'BR').astype(int)
+        df['is_arg'] = (df['pais'] == 'AR').astype(int)
+    
     return df
 
 # Función auxiliar para normalizar columnas numéricas

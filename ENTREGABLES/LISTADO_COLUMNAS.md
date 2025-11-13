@@ -1,6 +1,6 @@
 # Listado de Columnas del Dataset Procesado
 
-**Total de columnas: 56**
+**Total de columnas: 58**
 
 ## Columnas Originales (24)
 
@@ -41,7 +41,7 @@ Estas columnas contienen las versiones imputadas de las columnas originales que 
 30. **l_imputado** - float64 - Versión imputada de 'l' (0 nulos)
 31. **m_imputado** - float64 - Versión imputada de 'm' (0 nulos)
 
-## Columnas Creadas por Feature Engineering (23 columnas)
+## Columnas Creadas por Feature Engineering (25 columnas)
 
 ### Dummies de la columna 'o' (3 columnas)
 32. **o_is_N** - int64 - Dummy: o == 'N' (0 nulos)
@@ -56,34 +56,38 @@ Estas columnas contienen las versiones imputadas de las columnas originales que 
 37. **pais_target_enc** - float64 - Target encoding de pais (324 nulos - 0.13%)
 38. **pais_freq_enc** - float64 - Frequency encoding de pais (324 nulos - 0.13%)
 
+### Indicadores binarios de país (2 columnas)
+39. **is_brasil** - int64 - Indicador binario: 1 si pais == 'BR', 0 en caso contrario (0 nulos)
+40. **is_arg** - int64 - Indicador binario: 1 si pais == 'AR', 0 en caso contrario (0 nulos)
+
 ### Features de producto_nombre (5 columnas)
-39. **producto_num_chars** - int64 - Número de caracteres en el nombre del producto (0 nulos)
-40. **producto_num_words** - int64 - Número de palabras en el nombre del producto (0 nulos)
-41. **producto_num_special_chars** - int64 - Número de caracteres especiales (0 nulos)
-42. **producto_avg_word_len** - float64 - Promedio de longitud de palabras (0 nulos)
-43. **producto_freq** - int64 - Frecuencia del nombre del producto (0 nulos)
+41. **producto_num_chars** - int64 - Número de caracteres en el nombre del producto (0 nulos)
+42. **producto_num_words** - int64 - Número de palabras en el nombre del producto (0 nulos)
+43. **producto_num_special_chars** - int64 - Número de caracteres especiales (0 nulos)
+44. **producto_avg_word_len** - float64 - Promedio de longitud de palabras (0 nulos)
+45. **producto_freq** - int64 - Frecuencia del nombre del producto (0 nulos)
 
 ### Features temporales de fecha (13 columnas)
-44. **hora** - int32 - Hora del día (0-23) (0 nulos)
-45. **dia_semana** - int32 - Día de la semana (0=Lunes, 6=Domingo) (0 nulos)
-46. **dia_mes** - int32 - Día del mes (1-31) (0 nulos)
-47. **mes** - int32 - Mes (1-12) (0 nulos)
-48. **es_fin_de_semana** - int64 - 1 si es fin de semana, 0 si no (0 nulos)
-49. **es_nocturno** - int64 - 1 si es horario nocturno (22:00-06:00), 0 si no (0 nulos)
-50. **es_horario_laboral** - int64 - 1 si es horario laboral (09:00-18:00), 0 si no (0 nulos)
-51. **hora_sin** - float64 - Codificación cíclica seno de la hora (0 nulos)
-52. **hora_cos** - float64 - Codificación cíclica coseno de la hora (0 nulos)
-53. **dia_semana_sin** - float64 - Codificación cíclica seno del día de la semana (0 nulos)
-54. **dia_semana_cos** - float64 - Codificación cíclica coseno del día de la semana (0 nulos)
-55. **dia_mes_sin** - float64 - Codificación cíclica seno del día del mes (0 nulos)
-56. **dia_mes_cos** - float64 - Codificación cíclica coseno del día del mes (0 nulos)
+46. **hora** - int32 - Hora del día (0-23) (0 nulos)
+47. **dia_semana** - int32 - Día de la semana (0=Lunes, 6=Domingo) (0 nulos)
+48. **dia_mes** - int32 - Día del mes (1-31) (0 nulos)
+49. **mes** - int32 - Mes (1-12) (0 nulos)
+50. **es_fin_de_semana** - int64 - 1 si es fin de semana, 0 si no (0 nulos)
+51. **es_nocturno** - int64 - 1 si es horario nocturno (22:00-06:00), 0 si no (0 nulos)
+52. **es_horario_laboral** - int64 - 1 si es horario laboral (09:00-18:00), 0 si no (0 nulos)
+53. **hora_sin** - float64 - Codificación cíclica seno de la hora (0 nulos)
+54. **hora_cos** - float64 - Codificación cíclica coseno de la hora (0 nulos)
+55. **dia_semana_sin** - float64 - Codificación cíclica seno del día de la semana (0 nulos)
+56. **dia_semana_cos** - float64 - Codificación cíclica coseno del día de la semana (0 nulos)
+57. **dia_mes_sin** - float64 - Codificación cíclica seno del día del mes (0 nulos)
+58. **dia_mes_cos** - float64 - Codificación cíclica coseno del día del mes (0 nulos)
 
 ## Resumen
 
-- **Total de columnas**: 56
+- **Total de columnas**: 58
 - **Columnas originales**: 24 (algunas con nulos)
 - **Columnas imputadas**: 7 (todas sin nulos)
-- **Columnas creadas por feature engineering**: 25
+- **Columnas creadas por feature engineering**: 27
 
 ## Notas Importantes
 
@@ -106,6 +110,7 @@ Estas columnas contienen las versiones imputadas de las columnas originales que 
 
 5. **Feature Engineering**: Se crearon features adicionales mediante:
    - Target Encoding y Frequency Encoding para variables categóricas
+   - Indicadores binarios de país (is_brasil, is_arg)
    - Extracción de características de texto del nombre del producto
    - Extracción de características temporales de la fecha
    - Codificación cíclica para variables temporales
