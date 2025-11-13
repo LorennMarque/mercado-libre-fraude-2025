@@ -688,3 +688,9 @@ Threshold óptimo: 0.7487
 💰 COSTO:
    Costo por 1000 registros: 1354.20
 
+###################################
+
+COSTO CON FN=200 Y FP=5:
+
+Por 1000 registros: 1077.00
+Por 50000 registros: 53850
