@@ -624,3 +624,67 @@ siendo el tiempo de procesamiento (1m vs 5m). Aparte BRF esta diseñado para cas
 
 Por esto forest8 fue seleccionado como el modelo final, al cual se les van a optimizar los hiperparametros
 con Optuna. El menor tiempo de procesamiento va a ser muy importante en un proceso tan costoso.
+
+###################################################
+            Optimizacion con Optuna
+###################################################
+
+Modelo: Forest8
+
+Tiempo de optimizacion: 1hr 40m
+
+Parámetros óptimos:
+   - n_estimators: 550
+   - max_depth: 15
+   - min_samples_split: 4
+   - min_samples_leaf: 1
+   - max_features: log2
+   - sampling_strategy: 0.4553589346171797
+   - replacement: True
+
+Timepo de entrenamiento y optimizacion de thresholds: 8m
+
+##############################
+
+Optimizado con costo:
+
+Threshold óptimo: 0.4021
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0359
+   Robustez: Muy robusto ✅
+   Costo medio por fold: 813.80 ± 29.19
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.2353
+   Recall:             0.8687
+   F1 Score:           0.3703
+   Cohen's Kappa:      0.3391
+   Matthews Corr Coef: 0.4248
+   Tasa positivos:     0.1107
+
+💰 COSTO:
+   Costo por 1000 registros: 817.40
+
+##############################
+
+Optimizado con f1:
+
+Threshold óptimo: 0.7487
+
+📊 EVALUACIÓN DE ROBUSTEZ:
+   Coeficiente de variación (CV): 0.0181
+   Robustez: Muy robusto ✅
+   F1 Score medio por fold: 0.5365 ± 0.0097
+
+📊 RESUMEN DE MÉTRICAS CLAVE:
+   Precision:          0.4957
+   Recall:             0.5780
+   F1 Score:           0.5337
+   Cohen's Kappa:      0.5181
+   Matthews Corr Coef: 0.5198
+   Tasa positivos:     0.0350
+
+💰 COSTO:
+   Costo por 1000 registros: 1354.20
+
