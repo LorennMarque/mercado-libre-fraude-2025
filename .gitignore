@@ -7,3 +7,4 @@ data/raw/
 models/*
 .venv/*
 ENTREGABLES/__pycache__/*
+ENTREGABLES/marcos/rf_final_model.pkl
