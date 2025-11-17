@@ -117,3 +117,4 @@ Estas columnas contienen las versiones imputadas de las columnas originales que 
    - Extracción de características de texto del nombre del producto
    - Extracción de características temporales de la fecha
    - Codificación cíclica para variables temporales
+   
